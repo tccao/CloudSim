@@ -6,6 +6,8 @@ Each flow illustrates the user's interaction from the frontend interface to the 
 
 ---
 
+# Epic 1: Compute Instance Management (EC2 Simulation)
+
 ## 1. Provisioning Flow (Create Instance)
 
 ### Goal
@@ -108,6 +110,7 @@ Allow users to remove simulated instances safely from the system.
 **Diagram Reference:** `termination_flow.png`
 
 ---
+# Epic 2: Storage and Networking Simulation
 
 ## 4. Storage Volume Attachment Flow
 
@@ -219,6 +222,7 @@ Allow admin users to modify simulated bandwidth or latency between instances to 
 **Diagram Reference:** `bandwidth_adjustment_flow.png`
 
 ---
+# Epic 3: Monitoring & Metrics Visualization
 
 ## 7. Instance Metrics Retrieval Flow
 
@@ -327,6 +331,118 @@ timestamp,cpu,memory,network_in,network_out
 ```
 
 **Diagram Reference:** `metrics_export_flow.png`
+
+---
+
+# Epic 4: System Management & Configuration
+
+## 10. User Management Flow
+
+### Goal
+Allow administrators to add, update, or remove user accounts within CloudSim.
+
+### User Actions
+1. Admin navigates to the **User Management** page.
+2. Admin clicks **"Add User"** and enters username, role, and permissions.
+3. Frontend sends POST request to `/api/users/create`.
+4. Backend validates data, sores user record in DB, and returns confirmation.
+5. Frontend updates the user list dynamically.
+
+### API Triggered
+`POST /api/users/create`
+
+**Request Body**
+```json
+{
+    "username": "tinh",
+    "email": "tinh@cloudsim.com",
+    "role": "devops"
+}
+```
+
+**Response**
+```json
+{
+    "user_id": "u-001",
+    "status": "created",
+    "message": "User successfully added"
+}
+```
+
+**Diagram Reference:** `user_management_flow.png`
+
+---
+
+## 11. Resource Limit Configuration Flow
+
+### Goal
+Allow admins to define global limits for simulated compute, storage, and network resrouces.
+
+### User Actions
+1. Admin opens **System Settings** and selects **Resource Limits** tab.
+2. Inputs max CPU, storage, and network usage values.
+3. Frontend sends PUT request to `/api/config/resources`.
+4. Backend updates global configuration table in DB.
+5. Confirmation message appears with updated limits displayed.
+
+### API Triggered
+`PUT /api/config/resources`
+
+**Request Body**
+```json
+{
+    "max_cpu": 128,
+    "max_storage_gb": 5000,
+    "max_network_mbps": 1000
+}
+
+**Response**
+```json
+{
+    "status": "updated",
+    "message": "Global resource limits applied"
+}
+```
+
+**Diagram Reference:** `resource_limit_flow.png`
+
+---
+
+## 12. System Parameter Adjustment Flow
+
+### Goal
+Allow DevOps engineers to modify backend orchestration parameters (e.g., scheduling interval, instance refresh rate).
+
+### User Actions
+1. DevOps navigates to **Configuration Panel -> Orchestration Setting**.
+2. Adjusts parameters such as job interval or max concurrent simulations.
+3. Frontend sends PATCH request to `/api/config/orchestration`.
+4. Backend updates configuration file or DB and reloads parameters in memory.
+5. Success message returned to frontend.
+
+### API Triggered
+`PATCH /api/config/orchestration`
+
+**Request Body**
+```json
+{
+    "scheduler_interval": 15,
+    "max_concurrent_jobs": 10
+}
+```
+
+**Request Response**
+```json
+{
+    "stuatus": "ok",
+    "message": "Orchestration configuration updated"
+}
+```
+
+**Diagram Reference:** `orchestration_config_flow.png`
+
+---
+
 
 ---
 
