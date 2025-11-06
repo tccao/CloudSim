@@ -109,6 +109,227 @@ Allow users to remove simulated instances safely from the system.
 
 ---
 
+## 4. Storage Volume Attachment Flow
+
+### Goal
+Allow users to create and attach simulated storage volumes to existing compute instances.
+
+### User Actions
+1. User navigates to an instance detail page and clicks **“Attach Storage”**.
+2. A modal appears prompting volume name, size (GB), and type (SSD/HDD).
+3. User submits → frontend sends POST request to `/api/storage/create`.
+4. Backend creates a new volume record and associates it with the selected instance.
+5. Backend responds with success message and updated volume info.
+6. Frontend refreshes the instance page and lists the new attached volume.
+
+### API Triggered
+`POST /api/storage/create`
+
+**Request Body**
+```json
+{
+  "instance_id": "i-001",
+  "name": "vol-01",
+  "size_gb": 50,
+  "type": "SSD"
+}
+```
+
+**Response**
+```json
+{
+  "id": "vol-01",
+  "instance_id": "i-001",
+  "status": "attached",
+  "size_gb": 50,
+  "type": "SSD"
+}
+```
+
+**Diagram Reference:** `storage_attachment_flow.png`
+
+---
+
+## 5. Network Visualization Flow
+
+### Goal
+Allow users to view simulated network connections between instances for better visibility of cloud topology.
+
+### User Actions
+1. User clicks **“Network View”** on the dashboard.
+2. Frontend sends GET request to `/api/network/topology`.
+3. Backend retrieves all instance and connection data from the DB.
+4. Backend responds with topology graph data in JSON format.
+5. Frontend renders a visual network graph using nodes (instances) and edges (connections).
+
+### API Triggered
+`GET /api/network/topology`
+
+**Response**
+```json
+{
+  "nodes": [
+    {"id": "i-001", "label": "Instance 1"},
+    {"id": "i-002", "label": "Instance 2"}
+  ],
+  "connections": [
+    {"from": "i-001", "to": "i-002", "latency": 20, "bandwidth": 100}
+  ]
+}
+```
+
+**Diagram Reference:** `network_visualization_flow.png`
+
+---
+
+## 6. Bandwidth Adjustment Flow
+
+### Goal
+Allow admin users to modify simulated bandwidth or latency between instances to test network performance.
+
+### User Actions
+1. Admin opens the **Network Settings** panel.
+2. Selects a connection and enters new bandwidth or latency values.
+3. Frontend sends PUT request to `/api/network/update` with updated configuration.
+4. Backend validates and updates the corresponding network record in DB.
+5. Response confirms the modification and triggers a visual graph update.
+
+### API Triggered
+`PUT /api/network/update`
+
+**Request Body**
+```json
+{
+  "connection_id": "conn-01",
+  "bandwidth": 200,
+  "latency": 10
+}
+```
+
+**Response**
+```json
+{
+  "connection_id": "conn-01",
+  "status": "updated",
+  "bandwidth": 200,
+  "latency": 10
+}
+```
+
+**Diagram Reference:** `bandwidth_adjustment_flow.png`
+
+---
+
+## 7. Instance Metrics Retrieval Flow
+
+### Goal
+Enable users to view live CPU, RAM, and network metrics for simulated instances in the CloudSim dashboard.
+
+### User Actions
+1. User opens the **Monitoring tab** on the dashboard.
+2. Frontend sends GET request to `/api/metrics/{instance_id}`.
+3. Backend retrieves latest simulated performance data from DB or cache.
+4. Backend responds with JSON data containing metrics for CPU, memory, and network I/O.
+5. Frontend renders charts updating every 5 seconds through WebSocket feed.
+
+### API Triggered
+`GET /api/metrics/{instance_id}`
+
+**Response**
+```json
+{
+  "instance_id": "i-001",
+  "cpu": 35.6,
+  "memory": 2048,
+  "network_in": 150,
+  "network_out": 120,
+  "timestamp": "2025-11-04T15:00:00Z"
+}
+```
+
+**WebSocket Endpoint**
+`/ws/metrics/{instance_id}`  
+Used for pushing real-time metric updates to the frontend every 5 seconds.
+
+**Diagram Reference:** `metrics_retrieval_flow.png`
+
+---
+
+## 8. Threshold Alert Flow
+
+### Goal
+Notify users when simulated resource usage exceeds predefined thresholds.
+
+### User Actions
+1. User configures alert thresholds for CPU, memory, or network via **Alert Settings** panel.
+2. Frontend sends POST request to `/api/alerts/set` with chosen metrics and limits.
+3. Backend stores thresholds in DB and monitors metrics asynchronously.
+4. When a threshold is exceeded, backend emits alert event through WebSocket.
+5. Frontend displays red alert badge and sends optional toast notification.
+
+### API Triggered
+`POST /api/alerts/set`
+
+**Request Body**
+```json
+{
+  "instance_id": "i-001",
+  "cpu_threshold": 80,
+  "memory_threshold": 4096
+}
+```
+
+**Response**
+```json
+{
+  "status": "configured",
+  "message": "Alert thresholds saved successfully"
+}
+```
+
+**Alert Event Payload (WebSocket)**
+```json
+{
+  "instance_id": "i-001",
+  "metric": "cpu",
+  "value": 92.3,
+  "status": "alert_triggered"
+}
+```
+
+**Diagram Reference:** `threshold_alert_flow.png`
+
+---
+
+## 9. Metrics Export Flow
+
+### Goal
+Allow users to export historical performance data as CSV for offline analysis.
+
+### User Actions
+1. User clicks **“Export Metrics”** on the Monitoring page.
+2. Frontend sends GET request to `/api/metrics/export?instance_id={id}`.
+3. Backend aggregates metric logs from DB and formats them as CSV.
+4. Backend returns downloadable file response.
+5. Frontend triggers browser download of the CSV file.
+
+### API Triggered
+`GET /api/metrics/export`
+
+**Query Example**
+`/api/metrics/export?instance_id=i-001&range=1h`
+
+**Response (CSV Content Example)**
+```
+timestamp,cpu,memory,network_in,network_out
+2025-11-04T15:00:00Z,25.6,2048,120,100
+2025-11-04T15:05:00Z,35.2,2200,140,120
+```
+
+**Diagram Reference:** `metrics_export_flow.png`
+
+---
+
 ## Summary
 These flows define how users interact with the system during key operations.  
 Each action follows the **request → backend logic → database update → UI refresh** pattern, forming the backbone of CloudSim’s interactive simulation experience.
