@@ -395,6 +395,7 @@ Allow admins to define global limits for simulated compute, storage, and network
     "max_storage_gb": 5000,
     "max_network_mbps": 1000
 }
+```
 
 **Response**
 ```json
@@ -443,9 +444,98 @@ Allow DevOps engineers to modify backend orchestration parameters (e.g., schedul
 
 ---
 
+# Epic 5: Developer and API Integration
+
+## 13. Programmatic Instance Creation Flow
+
+### Goal
+Enable developers to create simulated instances through REST API calls, integrating CloudSim into CI/CD pipelines.
+
+### User Actions
+1. Developer sends POST requests to `/api/instances/create` via external script.
+2. Backend authenticates token and validates input payload.
+3. Instance record is created in DB and orchestration process is triggered.
+4. Response returns instance ID and current status.
+
+### API Triggered
+`POST /api/instances/create`
+
+**Request Body**
+```json
+{
+    "name": "dev-instance-01",
+    "cpu": 4,
+    "memory": 8192
+}
+```
+
+**Response**
+
+```json
+{
+    "id": "i-001",
+    "status": "creating",
+    "message": "Instance creation initiated"
+}
+```
+
+**Diagram Reference:** `programmatic_instance_flow.png`
 
 ---
 
+## 14. Metrics Retrieval via API Flow
+
+### Goal
+Allow developers to query resource usage metrics programmatically for custom dashboards or automation scripts.
+
+### User Actions
+1. Developer sends GET request to `/api/metrics/{instance_id}`.
+2. Backend fetches metrics from DB or memory cache.
+3. JSON data with latest CPU, memory, and network stats is returned.
+
+### API Triggered
+`GET /api/metrics/{instance_id}`
+
+**Response**
+```json
+{
+  "instance_id": "i-123",
+  "cpu": 40.1,
+  "memory": 6000,
+  "network_in": 120,
+  "network_out": 110
+}
+```
+
+**Diagram Reference:** `metrics_retrieval_api_flow.png`
+
+---
+
+## 15. Automated Cleanup Flow
+
+### Goal
+Enable developers to automatically delete simulated resources after testing or CI/CD runs.
+
+### User Actions
+1. Developer sends DELETE request to `/api/instances/{id}`.
+2. Backend verifies permissions and deletes instance record.
+3. Response confirms deletion success.
+
+### API Triggered
+`DELETE /api/instances/{id}`
+
+**Response**
+```json
+{
+  "id": "i-123",
+  "status": "terminated",
+  "message": "Instance removed successfully"
+}
+```
+
+**Diagram Reference:** `automated_cleanup_flow.png`
+
+---
 ## Summary
 These flows define how users interact with the system during key operations.  
 Each action follows the **request → backend logic → database update → UI refresh** pattern, forming the backbone of CloudSim’s interactive simulation experience.
