@@ -536,6 +536,131 @@ Enable developers to automatically delete simulated resources after testing or C
 **Diagram Reference:** `automated_cleanup_flow.png`
 
 ---
+
+# Epic 6: Future Enhancements
+
+## 16. Cost Estimation Flow
+
+### Goal
+Allow users to view simulated cost breakdowns per instancce and resource to analyze efficiency and budget consumption. 
+
+### User Actions
+1. User clicks **View Cost** on an instance card or dashboard summary.
+2. Frontend sends GET request to `/api/costs/{instance_id}`
+3. Backend retrieves stored usage metrics and applies cost formulas.
+4. Backend returns estimated hourly/daily cost per resource type.
+5. Frontend displays breakdown (Compute, Storage, Network) and total.
+
+### API Triggered
+`GET /api/costs/{instance_id}`
+
+**Response**
+```json
+  "instance_id": "i-0001",
+  "compute_cost_hr": 0.12,
+  "storage_cost_hr": 0.03,
+  "network_cost_hr": 0.01,
+  "total_cost_hr": 0.16
+```
+
+**Diagram reference:** `cost_estimation_flow.png`
+
+---
+
+## 17. Auto-Scaling Simulation Flow
+
+### Goal
+Simulate horizontal scaling behavior by automatically creating or removing instances based on load thresholds.
+
+### User Actions
+1. DevOps enables **Auto-Scaling Mode** in configuration panel.
+2. Frontend sends POST request to `/api/autoscale/enable` with scaling rules.
+3. Backend monitors metrics periodically (e.g., every 10 seconds).
+4. When CPU or memory usage exceeds threshold, backend auto-creates a new simulated instance.
+5. When usage drops, backend terminates extra instances.
+6. System emits WebSocket event for each scaling action; dashboard updates automatically.
+
+### API Triggered
+`POST /api/autoscale/enable`
+
+**Request Body**
+```json
+{
+  "metric": "cpu",
+  "threshold": 80,
+  "scale_out_cooldown": 30,
+  "scale_in_cooldown": 60,
+  "max_instances": 5
+}
+```
+
+**Response**
+```json
+{
+  "status": "autoscaling_enabled",
+  "message": "Auto-scaling configuration saved"
+}
+```
+
+**Auto-Scale Event (WebSockey)**
+```json
+{
+  "action": "scale_out",
+  "instance_id": "i-002",
+  "trigger_metric": "cpu",
+  "value": 87
+}
+```
+
+**Diagram Reference:** `autoscaling_simulation_flow.png`
+
+---
+
+## 18. Audit Logging Flow
+
+### Goal
+Enable administrators to view a log of all user actions for traceability and debugging.
+
+### User Actions
+1. Admin navigates to **Audit Logs** under the Admin panel.
+2. Frontend send GET request to `/api/logs/activity`.
+3. Backend queries audit table for recent user actions (CRUD events).
+4. Logs displayed with timestamps, user IDs, and affected entitities.
+5. Optionally, admin can export logs as CSV.
+
+### API Triggered
+`GET /api/logs/activity`
+
+**Response**
+```json
+{
+  "logs": [
+    {
+      "timestamp": "2025-11-04T15:00:00Z",
+      "user": "tinh",
+      "user_id": "u-001",
+      "action": "create_instance",
+      "target": "i-001",
+      "status": "success",
+      "details": "Instance i-001 created"
+    },
+    {
+      "timestamp": "2025-11-04T15:05:00Z",
+      "user": "admin",
+      "user_id": "u-002",
+      "action": "delete_volume",
+      "target": "vol-02",
+      "status": "success",
+      "details": "Instance i-002 vol-02 deleted"
+    }
+  ]
+}
+```
+
+**Diagram Reference:** `audit_logging_flow.png`
+
+----
+
 ## Summary
 These flows define how users interact with the system during key operations.  
 Each action follows the **request → backend logic → database update → UI refresh** pattern, forming the backbone of CloudSim’s interactive simulation experience.
