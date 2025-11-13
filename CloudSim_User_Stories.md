@@ -1,5 +1,7 @@
 # CloudSim – User Stories Document
-
+> Version: 0.9 (Draft)  
+> Owner: Tinh  
+> Project Type: Systems/Infrastructure Simulator (Free-tier stack)
 ## Overview
 CloudSim is a cloud infrastructure simulator designed to mimic AWS EC2-style compute, storage, and network environments.
 

@@ -14,7 +14,7 @@ Each flow illustrates the user's interaction from the frontend interface to the 
 Enable users to create new simulated compute instances within the CloudSim dashboard.
 
 ### User Actions
-1. User clicks **“Create Instance”** on the dashboard.
+1. User clicks **+ New Instance”** on the dashboard.
 2. A configuration modal appears (CPU, RAM, region, name).
 3. User submits the form → frontend sends POST request to `/api/instances/create`.
 4. Backend validates input, saves instance to DB, and starts orchestration simulation.
