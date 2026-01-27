@@ -361,10 +361,10 @@ export async function getCostSummary(): Promise<CostSummary> {
  * Before testing with curl, you need a JWT token. Get one with:
  * 
  * ```bash
- * # Login to get a token
+ * # Login to get a token (OAuth2 requires form-urlencoded, NOT JSON!)
  * curl -X POST http://localhost:8000/api/auth/login \
- *   -H "Content-Type: application/json" \
- *   -d '{"email": "admin@gmail.com", "password": "admin123"}'
+ *   -H "Content-Type: application/x-www-form-urlencoded" \
+ *   -d "username=admin@gmail.com&password=admin123"
  * 
  * # Response:
  * # {"access_token": "eyJhbGci...", "token_type": "bearer"}
@@ -374,4 +374,11 @@ export async function getCostSummary(): Promise<CostSummary> {
  * curl -X GET http://localhost:8000/api/ec2/instances \
  *   -H "Authorization: Bearer $TOKEN"
  * ```
+ * 
+ * TEST ACCOUNTS:
+ *   admin@gmail.com / admin123 (Admin)
+ *   dev@gmail.com / dev123 (Developer)
+ *   deng@gmail.com / deng123 (DevOps Engineer)
+ *   user@gmail.com / user123 (User)
  */
+
