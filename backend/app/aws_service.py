@@ -260,6 +260,8 @@ def create_instance(
     image_id: str = None,
     user_id: int = None,
     user_email: str = None,
+    subnet_id: str = None,
+    security_group_ids: list = None,
 ) -> dict:
     """
     Create a new EC2 instance.
@@ -270,6 +272,8 @@ def create_instance(
         image_id: AMI ID (defaults to Amazon Linux 2023 in us-east-1)
         user_id: CloudSim user ID for instance isolation
         user_email: CloudSim user email for auditing
+        subnet_id: VPC subnet to launch in (defaults to cloudsim_subnet_id from config)
+        security_group_ids: Security groups to attach (defaults to cloudsim_security_group_id from config)
     """
     # Default to Amazon Linux 2023 AMI in us-east-1
     if not image_id:
@@ -287,6 +291,13 @@ def create_instance(
         else:
             raise Exception("No suitable AMI found")
     
+    # Use CloudSim VPC settings if configured and not explicitly provided
+    if not subnet_id and settings.cloudsim_subnet_id:
+        subnet_id = settings.cloudsim_subnet_id
+    
+    if not security_group_ids and settings.cloudsim_security_group_id:
+        security_group_ids = [settings.cloudsim_security_group_id]
+    
     # Build tags - always include Name, optionally include creator info
     tags = [{"Key": "Name", "Value": name}]
     
@@ -299,19 +310,29 @@ def create_instance(
     # Add CloudSim identifier
     tags.append({"Key": "ManagedBy", "Value": "CloudSim"})
     
+    # Build instance launch parameters
+    launch_params = {
+        "ImageId": image_id,
+        "InstanceType": instance_type,
+        "MinCount": 1,
+        "MaxCount": 1,
+        "TagSpecifications": [
+            {
+                "ResourceType": "instance",
+                "Tags": tags,
+            }
+        ],
+    }
+    
+    # Add VPC settings if configured
+    if subnet_id:
+        launch_params["SubnetId"] = subnet_id
+    
+    if security_group_ids:
+        launch_params["SecurityGroupIds"] = security_group_ids
+    
     try:
-        response = ec2_resource.create_instances(
-            ImageId=image_id,
-            InstanceType=instance_type,
-            MinCount=1,
-            MaxCount=1,
-            TagSpecifications=[
-                {
-                    "ResourceType": "instance",
-                    "Tags": tags,
-                }
-            ],
-        )
+        response = ec2_resource.create_instances(**launch_params)
         
         instance = response[0]
         return {
@@ -319,6 +340,8 @@ def create_instance(
             "instance_id": instance.id,
             "name": name,
             "instance_type": instance_type,
+            "subnet_id": subnet_id,
+            "security_group_ids": security_group_ids,
         }
     except ClientError as e:
         raise Exception(f"Failed to create instance: {e}")

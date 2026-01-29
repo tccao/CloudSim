@@ -117,9 +117,18 @@ class Settings(BaseSettings):
     # =========================================================================
     # Format: arn:aws:iam::{account_id}:role/{role_name}
     aws_role_admin: Optional[str] = None      # Full access
-    aws_role_developer: Optional[str] = None  # Create/manage instances
-    aws_role_readonly: Optional[str] = None   # View only
-    aws_role_student: Optional[str] = None    # Limited to micro instances
+    aws_role_developer: Optional[str] = None  # View + metrics, no create/terminate
+    aws_role_devops: Optional[str] = None     # Developer + create instances
+    aws_role_readonly: Optional[str] = None   # View only (User role)
+    
+    # =========================================================================
+    # VPC CONFIGURATION (for dedicated CloudSim network)
+    # =========================================================================
+    # If set, new instances will be created in this VPC/subnet with this security group
+    # Leave empty to use default VPC
+    cloudsim_vpc_id: Optional[str] = None           # e.g., vpc-0abc123...
+    cloudsim_subnet_id: Optional[str] = None        # Default subnet for new instances
+    cloudsim_security_group_id: Optional[str] = None  # Default security group
     
     # =========================================================================
     # APPLICATION SETTINGS

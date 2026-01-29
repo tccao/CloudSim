@@ -137,7 +137,7 @@ def get_role_arn_for_user(user_role: str) -> Optional[str]:
     role_mapping = {
         'Admin': settings.aws_role_admin,
         'Developer': settings.aws_role_developer,
-        'DevOps Engineer': settings.aws_role_developer,  # Same as Developer
+        'DevOps Engineer': settings.aws_role_devops,  # DevOps has create permissions
         'User': settings.aws_role_readonly,
     }
     
