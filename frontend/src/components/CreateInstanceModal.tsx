@@ -27,24 +27,27 @@ const amiOptions = {
 
 // Instance type options data
 const instanceTypes = {
+  't2.nano': { vcpu: 1, memory: 0.5, price: 0.0058 },
   't2.micro': { vcpu: 1, memory: 1, price: 0.0116 },
   't2.small': { vcpu: 1, memory: 2, price: 0.023 },
-  't3.medium': { vcpu: 2, memory: 4, price: 0.0416 },
-  'm5.large': { vcpu: 2, memory: 8, price: 0.096 },
+  't2.medium': { vcpu: 2, memory: 4, price: 0.046 },
+  't2.large': { vcpu: 2, memory: 8, price: 0.092 },
 };
 
 // VPC options data
 const vpcOptions = {
-  'vpc-1': 'vpc-0a1b2c3d4e5f (default)',
-  'vpc-2': 'vpc-1a2b3c4d5e6f (prod-vpc)',
-  'vpc-3': 'vpc-2b3c4d5e6f7a (dev-vpc)',
+  'cloudsim-vpc': 'vpc-0f966dca08a6c0d9b (cloudsim-vpc)',
+};
+
+// Subnet options data
+const subnetOptions = {
+  'cloudsim-public': 'cloudsim-public-0204c01c4e5d0f86d (us-east-1a)',
+  'cloudsim-private': 'cloudsim-private-096492e1ec149a740 (us-east-1a)',
 };
 
 // Security group options data
 const sgOptions = {
-  'sg-1': 'sg-0a1b2c3d (default)',
-  'sg-2': 'sg-1b2c3d4e (web-server-sg)',
-  'sg-3': 'sg-2c3d4e5f (ssh-only)',
+  'cloudsim-ec2-sg': 'sg-0cd0cdc01b676a91e (cloudsim-ec2-sg)',
 };
 
 export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalProps) {
@@ -54,10 +57,11 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
   // Form state
   const [instanceName, setInstanceName] = useState('web-server-01');
   const [selectedAmi, setSelectedAmi] = useState('ami-1');
-  const [selectedInstanceType, setSelectedInstanceType] = useState('t2.micro');
-  const [selectedVpc, setSelectedVpc] = useState('vpc-1');
-  const [selectedSecurityGroup, setSelectedSecurityGroup] = useState('sg-1');
-  const [volumeSize, setVolumeSize] = useState('8');
+  const [selectedInstanceType, setSelectedInstanceType] = useState('t2.nano');
+  const [selectedVpc, setSelectedVpc] = useState('cloudsim-vpc');
+  const [selectedSubnet, setSelectedSubnet] = useState('cloudsim-public');
+  const [selectedSecurityGroup, setSelectedSecurityGroup] = useState('cloudsim-ec2-sg');
+  const [volumeSize, setVolumeSize] = useState('1');
 
   const handleNext = () => {
     if (step < 4) setStep(step + 1);
@@ -74,18 +78,9 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
     try {
       setIsLaunching(true);
 
-      const typeConfig = instanceTypes[selectedInstanceType as keyof typeof instanceTypes];
-
-      // Generate a random ID (backend requires client-generated ID currently)
-      const randomId = 'i-' + Math.random().toString(36).substr(2, 16);
-
       await createInstance({
-        id: randomId,
         name: instanceName,
-        type: selectedInstanceType,
-        cpu: typeConfig.vcpu,
-        memory: typeConfig.memory * 1024, // Backend expects MB? Schemas says int. Let's assume MB if it was 1024 in example.
-        // Wait, verifying example: "memory": 1024. Yes, likely MB.
+        instance_type: selectedInstanceType,
       });
 
       toast.success('Instance launched successfully');
@@ -205,20 +200,20 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
               <RadioGroup value={selectedInstanceType} onValueChange={setSelectedInstanceType}>
                 <Card className="p-4 mb-3">
                   <div className="flex items-start gap-3">
-                    <RadioGroupItem value="t2.micro" id="t2.micro" className="mt-1" />
+                    <RadioGroupItem value="t2.nano" id="t2.nano" className="mt-1" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <label htmlFor="t2.micro" className="cursor-pointer">
-                          t2.micro
+                        <label htmlFor="t2.nano" className="cursor-pointer">
+                          t2.nano
                         </label>
                         <Badge variant="secondary">Free tier eligible</Badge>
                       </div>
                       <p className="text-sm text-gray-500 mt-1">
-                        1 vCPU • 1 GiB Memory • EBS only
+                        1 vCPU • 512 MiB Memory
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm">$0.0116/hour</p>
+                      <p className="text-sm">$0.0058/hour</p>
                     </div>
                   </div>
                 </Card>
@@ -231,7 +226,7 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
                         t2.small
                       </label>
                       <p className="text-sm text-gray-500 mt-1">
-                        1 vCPU • 2 GiB Memory • EBS only
+                        1 vCPU • 2 GiB Memory
                       </p>
                     </div>
                     <div className="text-right">
@@ -242,34 +237,34 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
 
                 <Card className="p-4 mb-3">
                   <div className="flex items-start gap-3">
-                    <RadioGroupItem value="t3.medium" id="t3.medium" className="mt-1" />
+                    <RadioGroupItem value="t2.medium" id="t2.medium" className="mt-1" />
                     <div className="flex-1">
-                      <label htmlFor="t3.medium" className="cursor-pointer">
-                        t3.medium
+                      <label htmlFor="t2.medium" className="cursor-pointer">
+                        t2.medium
                       </label>
                       <p className="text-sm text-gray-500 mt-1">
-                        2 vCPU • 4 GiB Memory • EBS only
+                        2 vCPU • 4 GiB Memory
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm">$0.0416/hour</p>
+                      <p className="text-sm">$0.046/hour</p>
                     </div>
                   </div>
                 </Card>
 
                 <Card className="p-4">
                   <div className="flex items-start gap-3">
-                    <RadioGroupItem value="m5.large" id="m5.large" className="mt-1" />
+                    <RadioGroupItem value="t2.large" id="t2.large" className="mt-1" />
                     <div className="flex-1">
-                      <label htmlFor="m5.large" className="cursor-pointer">
-                        m5.large
+                      <label htmlFor="t2.large" className="cursor-pointer">
+                        t2.large
                       </label>
                       <p className="text-sm text-gray-500 mt-1">
-                        2 vCPU • 8 GiB Memory • EBS only
+                        2 vCPU • 8 GiB Memory
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm">$0.096/hour</p>
+                      <p className="text-sm">$0.092/hour</p>
                     </div>
                   </div>
                 </Card>
@@ -291,23 +286,20 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="vpc-1">vpc-0a1b2c3d4e5f (default)</SelectItem>
-                    <SelectItem value="vpc-2">vpc-1a2b3c4d5e6f (prod-vpc)</SelectItem>
-                    <SelectItem value="vpc-3">vpc-2b3c4d5e6f7a (dev-vpc)</SelectItem>
+                    <SelectItem value="cloudsim-vpc">vpc-0f966dca08a6c0d9b (cloudsim-vpc)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="subnet">Subnet</Label>
-                <Select defaultValue="subnet-1">
+                <Select value={selectedSubnet} onValueChange={setSelectedSubnet}>
                   <SelectTrigger id="subnet">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="subnet-1">subnet-0a1b2c3d (us-east-1a)</SelectItem>
-                    <SelectItem value="subnet-2">subnet-1b2c3d4e (us-east-1b)</SelectItem>
-                    <SelectItem value="subnet-3">subnet-2c3d4e5f (us-east-1c)</SelectItem>
+                    <SelectItem value="cloudsim-public">cloudsim-public-0204c01c4e5d0f86d (us-east-1a)</SelectItem>
+                    <SelectItem value="cloudsim-private">cloudsim-private-096492e1ec149a740 (us-east-1a)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -319,9 +311,7 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sg-1">sg-0a1b2c3d (default)</SelectItem>
-                    <SelectItem value="sg-2">sg-1b2c3d4e (web-server-sg)</SelectItem>
-                    <SelectItem value="sg-3">sg-2c3d4e5f (ssh-only)</SelectItem>
+                    <SelectItem value="cloudsim-ec2-sg">sg-0cd0cdc01b676a91e (cloudsim-ec2-sg)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -401,6 +391,11 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">VPC</span>
                   <span className="text-sm">{vpcOptions[selectedVpc as keyof typeof vpcOptions]}</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Subnet</span>
+                  <span className="text-sm">{subnetOptions[selectedSubnet as keyof typeof subnetOptions]}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">

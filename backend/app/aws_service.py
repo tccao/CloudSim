@@ -350,12 +350,11 @@ def create_instance(
 def get_available_instance_types() -> list[str]:
     """Return list of allowed instance types for CloudSim."""
     return [
-        "t2.micro",    # Free tier
+        "t2.nano",     
+        "t2.micro",    
         "t2.small",
         "t2.medium",
-        "t3.micro",
-        "t3.small",
-        "t3.medium",
+        "t2.large",
     ]
 
 

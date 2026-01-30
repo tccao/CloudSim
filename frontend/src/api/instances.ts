@@ -18,21 +18,17 @@ export interface Instance {
 }
 
 export interface InstanceCreate {
-    id: string;
     name: string;
-    type: string;
-    cpu: number;
-    memory: number;
+    instance_type: string;
 }
 
 // Map instance type to CPU/Memory specs
 const instanceSpecs: Record<string, { cpu: number; memory: number }> = {
+    't2.nano': { cpu: 1, memory: 0.5 },
     't2.micro': { cpu: 1, memory: 1 },
     't2.small': { cpu: 1, memory: 2 },
     't2.medium': { cpu: 2, memory: 4 },
-    't3.micro': { cpu: 2, memory: 1 },
-    't3.small': { cpu: 2, memory: 2 },
-    't3.medium': { cpu: 2, memory: 4 },
+    't2.large': { cpu: 2, memory: 8 },
 };
 
 // Calculate uptime from launch time
@@ -72,16 +68,20 @@ export const fetchInstances = async (): Promise<Instance[]> => {
 export const createInstance = async (data: InstanceCreate): Promise<Instance> => {
     const result = await ec2Api.createInstance({
         name: data.name,
-        instance_type: data.type,
+        instance_type: data.instance_type,
     });
+
+    // Get specs for the instance type
+    const specs = instanceSpecs[data.instance_type] || { cpu: 1, memory: 1 };
+
     // Return a pending instance (will be fetched on next refresh)
     return {
         id: result.instance_id,
         name: data.name,
-        type: data.type,
+        type: data.instance_type,
         state: 'pending',
-        cpu: data.cpu,
-        memory: data.memory,
+        cpu: specs.cpu,
+        memory: specs.memory,
         zone: 'us-east-1a',
         publicIp: '-',
         privateIp: '-',
