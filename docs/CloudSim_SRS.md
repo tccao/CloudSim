@@ -68,8 +68,7 @@ CloudSim is a fullstack web application with:
 | Role | Permissions |
 |------|-------------|
 | **User** | View instances, start/stop own instances |
-| **Developer** | All User permissions + view metrics |
-| **DevOps Engineer** | All Developer permissions + create instances |
+| **DevOps Engineer** | Full EC2 + CloudWatch + Cost Explorer (no terminate) |
 | **Admin** | All permissions + terminate instances, manage users, quotas |
 
 ### 2.3 Operating Environment
@@ -124,12 +123,12 @@ CloudSim is a fullstack web application with:
 | Admin | Add or remove users | Control access | Users manageable in IAM panel |
 | Admin | Set resource limits | Enforce quotas | System blocks unauthorized actions |
 
-### Epic 5: Developer API Integration
+### Epic 5: API Integration
 
 | As a | I want to | So that I can | Acceptance Criteria |
 |------|-----------|---------------|---------------------|
-| Developer | Use REST APIs for automation | Integrate with pipelines | All CRUD operations available via API |
-| Developer | Query metrics programmatically | Build custom dashboards | `/api/ec2/instances/{id}/metrics` returns JSON |
+| DevOps Engineer | Use REST APIs for automation | Integrate with pipelines | All CRUD operations available via API |
+| DevOps Engineer | Query metrics programmatically | Build custom dashboards | `/api/ec2/instances/{id}/metrics` returns JSON |
 
 ---
 
@@ -237,10 +236,10 @@ Response: {
 
 ### 5.4 System Management (Epic 4)
 - **FR-14:** User authentication with JWT tokens
-- **FR-15:** Role-based access control (User, Developer, DevOps, Admin)
+- **FR-15:** Role-based access control (User, DevOps Engineer, Admin)
 - **FR-16:** IAM panel for user management
 
-### 5.5 Developer APIs (Epic 5)
+### 5.5 API Integration (Epic 5)
 - **FR-17:** RESTful API for all instance operations
 - **FR-18:** Consistent JSON response format
 - **FR-19:** Error handling with appropriate HTTP status codes

@@ -14,14 +14,14 @@ class User(Base):
     - email as unique identifier (not username) - more common in modern apps
     - hashed_password: NEVER store plain text passwords
     - is_active: Allows soft-disable without deleting user data
-    - role: User role for access control (Admin, Developer, DevOps Engineer, User)
+    - role: User role for access control (Admin, DevOps Engineer, User)
     """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(String, default="User")  # Admin, Developer, DevOps Engineer, User
+    role = Column(String, default="User")  # Admin, DevOps Engineer, User
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

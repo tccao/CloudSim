@@ -30,7 +30,7 @@ import { api } from './client';
 export interface User {
     id: number;
     email: string;
-    role: string;  // Admin, Developer, DevOps Engineer, User
+    role: string;  // Admin, DevOps Engineer, User
     is_active: boolean;
 }
 
@@ -190,7 +190,7 @@ export async function register(data: RegisterData): Promise<User> {
  * 
  * TEST ACCOUNTS (from seed data):
  *   - admin@gmail.com / admin123 (Admin role)
- *   - dev@gmail.com / dev123 (Developer role)
+ *   - devops@gmail.com / devops123 (DevOps Engineer role)
  *   - deng@gmail.com / deng123 (DevOps Engineer role)
  *   - user@gmail.com / user123 (User role)
  */

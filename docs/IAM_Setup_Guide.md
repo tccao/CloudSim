@@ -1,21 +1,18 @@
 # CloudSim AWS IAM Setup Guide
 
-Complete guide to set up AWS IAM for CloudSim from your root/admin AWS account.
-
 ---
 
 ## Overview
 
 We will create:
 1. **One IAM User** (`cloudsim-service`) - Used by the backend application
-2. **Four IAM Roles** - One for each CloudSim user role, assumed via STS
+2. **Three IAM Roles** - One for each CloudSim user role, assumed via STS
 
 ```
 Database Users              IAM Roles
 ─────────────────────       ──────────────────────────
 admin@gmail.com (Admin)     → CloudSimAdminRole (full access)
-dev@gmail.com (Developer)   → CloudSimDeveloperRole (view + metrics)
-deng@gmail.com (DevOps)     → CloudSimDevOpsRole (create instances)
+devops@gmail.com (DevOps)   → CloudSimDevOpsRole (full EC2, no terminate)
 user@gmail.com (User)       → CloudSimUserRole (view + start/stop only)
 ```
 
@@ -85,79 +82,7 @@ user@gmail.com (User)       → CloudSimUserRole (view + start/stop only)
 
 ---
 
-### Step 2.2: Create Developer Policy
-
-**Developer = User permissions + view metrics**
-
-> Note: Developers can view metrics but cannot create or terminate instances.
-
-1. Click **Create policy**
-2. Select **JSON** tab
-3. Paste:
-
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "EC2ReadOnly",
-            "Effect": "Allow",
-            "Action": [
-                "ec2:DescribeInstances",
-                "ec2:DescribeInstanceStatus",
-                "ec2:DescribeImages",
-                "ec2:DescribeVolumes",
-                "ec2:DescribeSecurityGroups",
-                "ec2:DescribeVpcs",
-                "ec2:DescribeSubnets"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "AllowStartStopReboot",
-            "Effect": "Allow",
-            "Action": [
-                "ec2:StartInstances",
-                "ec2:StopInstances",
-                "ec2:RebootInstances"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "CloudWatchMetrics",
-            "Effect": "Allow",
-            "Action": [
-                "cloudwatch:GetMetricStatistics",
-                "cloudwatch:ListMetrics",
-                "cloudwatch:GetMetricData"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "DenyCreateAndTerminate",
-            "Effect": "Deny",
-            "Action": [
-                "ec2:RunInstances",
-                "ec2:TerminateInstances"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "DenyCostExplorer",
-            "Effect": "Deny",
-            "Action": "ce:*",
-            "Resource": "*"
-        }
-    ]
-}
-```
-
-4. Name: `CloudSimDeveloperPolicy`
-5. Create policy
-
----
-
-### Step 2.3: Create DevOps Engineer Policy
+### Step 2.2: Create DevOps Engineer Policy
 
 **DevOps = Developer + create instances**
 
@@ -233,7 +158,7 @@ user@gmail.com (User)       → CloudSimUserRole (view + start/stop only)
 
 ---
 
-### Step 2.4: Create User (Basic) Policy
+### Step 2.3: Create User (Basic) Policy
 
 **User = View instances, start/stop own instances, view costs**
 
@@ -314,7 +239,7 @@ user@gmail.com (User)       → CloudSimUserRole (view + start/stop only)
 3. Click **Create access key**
 4. Select **Application running outside AWS**
 5. Click **Next** → **Create access key**
-6. **SAVE THESE KEYS!** You won't see them again.
+6. **SAVE THESE KEYS!** 
 
 ```
 Access key ID: AKIA...
@@ -339,7 +264,6 @@ The backend user needs permission to assume roles. Add this inline policy:
             "Action": "sts:AssumeRole",
             "Resource": [
                 "arn:aws:iam::096615316348:role/CloudSimAdminRole",
-                "arn:aws:iam::096615316348:role/CloudSimDeveloperRole",
                 "arn:aws:iam::096615316348:role/CloudSimDevOpsRole",
                 "arn:aws:iam::096615316348:role/CloudSimUserRole"
             ]
@@ -355,7 +279,7 @@ The backend user needs permission to assume roles. Add this inline policy:
 
 ## Part 4: Create IAM Roles
 
-Create **4 roles** - one for each CloudSim user type.
+Create **3 roles** - one for each CloudSim user type.
 
 ### Step 4.1: Create Admin Role
 
@@ -385,21 +309,14 @@ Create **4 roles** - one for each CloudSim user type.
 8. Role name: `CloudSimAdminRole`
 9. Create role
 
-### Step 4.2: Create Developer Role
-
-Repeat:
-- Trust policy: Same as above
-- Attach: `CloudSimDeveloperPolicy`
-- Role name: `CloudSimDeveloperRole`
-
-### Step 4.3: Create DevOps Role
+### Step 4.2: Create DevOps Role
 
 Repeat:
 - Trust policy: Same as above
 - Attach: `CloudSimDevOpsPolicy`
 - Role name: `CloudSimDevOpsRole`
 
-### Step 4.4: Create User Role
+### Step 4.3: Create User Role
 
 Repeat:
 - Trust policy: Same as above
@@ -432,9 +349,8 @@ region = us-east-1
 # Enable role-based access
 ENABLE_ROLE_BASED_ACCESS=true
 
-# IAM Role ARNs (update account ID if different)
+# IAM Role ARNs
 AWS_ROLE_ADMIN=arn:aws:iam::096615316348:role/CloudSimAdminRole
-AWS_ROLE_DEVELOPER=arn:aws:iam::096615316348:role/CloudSimDeveloperRole
 AWS_ROLE_DEVOPS=arn:aws:iam::096615316348:role/CloudSimDevOpsRole
 AWS_ROLE_READONLY=arn:aws:iam::096615316348:role/CloudSimUserRole
 ```
@@ -457,7 +373,6 @@ aws sts assume-role \
 | CloudSim User | Database Role | IAM Role | IAM Policy |
 |---------------|---------------|----------|------------|
 | admin@gmail.com | Admin | CloudSimAdminRole | CloudSimAdminPolicy |
-| dev@gmail.com | Developer | CloudSimDeveloperRole | CloudSimDeveloperPolicy |
 | deng@gmail.com | DevOps Engineer | CloudSimDevOpsRole | CloudSimDevOpsPolicy |
 | user@gmail.com | User | CloudSimUserRole | CloudSimUserPolicy |
 
@@ -470,7 +385,6 @@ aws sts assume-role \
 | Role | View Instances | Start/Stop | Reboot | Create | Terminate | Metrics | Costs |
 |------|---------------|------------|--------|--------|-----------|---------|-------|
 | User | ✅ All* | ✅ CloudSim only | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Developer | ✅ All | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
 | DevOps Engineer | ✅ All | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
 | Admin | ✅ All | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
@@ -480,10 +394,10 @@ aws sts assume-role \
 
 | Role | View Instances | Start/Stop |
 |------|---------------|------------|
-| User | Own only | Own only |
-| Developer | All | All |
-| DevOps Engineer | All | All |
 | Admin | All | All |
+| DevOps Engineer | All | All |
+| User | Own only | Own only |
+
 
 **How Instance Isolation Works:**
 1. **Tagging**: Instances created via CloudSim are tagged with `CreatedBy=<user_id>`

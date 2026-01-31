@@ -139,10 +139,10 @@ def sync_instances_to_db(aws_instances: list, db: Session):
 def _filter_instances_for_user(instances: list, user: User) -> list:
     """
     Filter instances based on user role.
-    - Admin/DevOps/Developer: See all instances
+    - Admin/DevOps: See all instances
     - User: See only instances they created (CreatedBy tag matches user ID)
     """
-    if user.role in ["Admin", "DevOps Engineer", "Developer"]:
+    if user.role in ["Admin", "DevOps Engineer"]:
         return instances
     
     # For User role, filter by CreatedBy tag
@@ -173,7 +173,7 @@ async def list_instances(
 ):
     """
     List EC2 instances.
-    - Admin/DevOps/Developer: See all instances
+    - Admin/DevOps: See all instances
     - User: See only instances they created
     """
     try:
@@ -224,9 +224,9 @@ async def create_instance(
     request: CreateInstanceRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new EC2 instance. Requires Developer or Admin role."""
+    """Create a new EC2 instance. Requires DevOps or Admin role."""
     # Check role
-    if current_user.role not in ["Admin", "Developer", "DevOps Engineer"]:
+    if current_user.role not in ["Admin", "DevOps Engineer"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions to create instances")
     
     # Validate instance type
@@ -256,7 +256,7 @@ def _check_instance_ownership(instance_id: str, user: User) -> bool:
     if user.role in ["Admin", "DevOps Engineer"]:
         return True
     
-    # For User and Developer roles, check ownership
+    # For User role, check ownership
     try:
         instance = aws_service.get_instance(instance_id)
         if not instance:

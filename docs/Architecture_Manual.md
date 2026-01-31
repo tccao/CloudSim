@@ -188,8 +188,7 @@ CloudSim implements role-based access control with four roles:
 | Role | Permissions |
 |------|-------------|
 | **User** | View instances, start/stop own instances |
-| **Developer** | All User permissions + view metrics |
-| **DevOps Engineer** | All Developer permissions + create instances |
+| **DevOps Engineer** | Full EC2 + CloudWatch + Cost Explorer (no terminate) |
 | **Admin** | All permissions + terminate instances, manage users |
 
 **Implementation:**

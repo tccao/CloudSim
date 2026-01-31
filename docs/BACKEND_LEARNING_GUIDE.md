@@ -631,7 +631,7 @@ async def create_instance(
     current_user: User = Depends(get_current_user)
 ):
     # Check role before action
-    if current_user.role not in ["Admin", "Developer", "DevOps Engineer"]:
+    if current_user.role not in ["Admin", "DevOps Engineer"]:
         raise HTTPException(
             status_code=403,
             detail="Insufficient permissions to create instances"

@@ -29,7 +29,7 @@ class AdminUserCreate(BaseModel):
     """Admin creates user with specified role."""
     email: EmailStr
     password: str
-    role: str = "User"  # Admin, Developer, DevOps Engineer, User
+    role: str = "User"  # Admin, DevOps Engineer, User
 
 
 class AdminUserUpdate(BaseModel):
@@ -79,7 +79,7 @@ async def create_user(
         )
     
     # Validate role
-    valid_roles = ["Admin", "Developer", "DevOps Engineer", "User"]
+    valid_roles = ["Admin", "DevOps Engineer", "User"]
     if user_data.role not in valid_roles:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

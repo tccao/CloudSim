@@ -117,8 +117,7 @@ class Settings(BaseSettings):
     # =========================================================================
     # Format: arn:aws:iam::{account_id}:role/{role_name}
     aws_role_admin: Optional[str] = None      # Full access
-    aws_role_developer: Optional[str] = None  # View + metrics, no create/terminate
-    aws_role_devops: Optional[str] = None     # Developer + create instances
+    aws_role_devops: Optional[str] = None     # Full EC2, no terminate
     aws_role_readonly: Optional[str] = None   # View only (User role)
     
     # =========================================================================

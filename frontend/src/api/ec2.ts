@@ -2,21 +2,6 @@
  * =============================================================================
  * CloudSim EC2 API Client
  * =============================================================================
- * 
- * PURPOSE:
- * This file provides TypeScript functions that call the CloudSim backend API.
- * These are HTTP wrappers - they do NOT call AWS directly.
- * 
- * ARCHITECTURE:
- *   Browser (this file)  →  Backend (FastAPI)  →  AWS (boto3)
- *   listInstances()      →  GET /api/ec2/...   →  ec2.describe_instances()
- * 
- * WHY THIS LAYER EXISTS:
- *   1. Security: AWS credentials stay on backend, never exposed to browser
- *   2. Types: TypeScript interfaces for all API responses
- *   3. Reusability: Import functions instead of duplicating axios calls
- * 
- * =============================================================================
  */
 
 import { api } from './client';
@@ -26,7 +11,6 @@ import { api } from './client';
 // SECTION 1: TYPE DEFINITIONS
 // =============================================================================
 // These interfaces define the shape of data returned by the backend API.
-// They help TypeScript catch errors at compile time.
 
 /** Basic instance info returned by list endpoint */
 export interface EC2Instance {
@@ -108,7 +92,7 @@ export interface ActionResponse {
  *   {
  *     "instance_id": "i-0abc123def456",
  *     "name": "web-server-01",
- *     "instance_type": "t2.micro",
+ *     "instance_type": "t2.nano",
  *     "state": "running",
  *     "public_ip": "54.123.45.67",
  *     "private_ip": "172.31.16.22"
@@ -377,7 +361,6 @@ export async function getCostSummary(): Promise<CostSummary> {
  * 
  * TEST ACCOUNTS:
  *   admin@gmail.com / admin123 (Admin)
- *   dev@gmail.com / dev123 (Developer)
  *   deng@gmail.com / deng123 (DevOps Engineer)
  *   user@gmail.com / user123 (User)
  */

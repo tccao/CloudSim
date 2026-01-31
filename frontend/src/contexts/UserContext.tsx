@@ -8,7 +8,7 @@
  *    - Token validation on app load
  * 
  * 2. Role comes directly from backend
- *    - Backend manages user roles (Admin, Developer, DevOps Engineer, User)
+ *    - Backend manages user roles (Admin, DevOps Engineer, User)
  *    - Frontend displays role-based UI accordingly
  * 
  * 3. Loading state
@@ -23,7 +23,7 @@ import * as authApi from '../api/auth';
 /* eslint-disable react-refresh/only-export-components */
 
 // User roles - must match backend roles
-export type UserRole = 'Admin' | 'Developer' | 'DevOps Engineer' | 'User' | null;
+export type UserRole = 'Admin' | 'DevOps Engineer' | 'User' | null;
 
 // User interface matching backend response
 interface User {

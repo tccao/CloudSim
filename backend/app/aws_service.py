@@ -10,7 +10,7 @@ CREDENTIAL CHAIN (in order of priority):
 
 ROLE-BASED ACCESS:
 When ENABLE_ROLE_BASED_ACCESS=true, users get AWS clients with
-permissions based on their CloudSim role (Admin, Developer, User, etc.)
+permissions based on their CloudSim role (Admin, DevOps Engineer, User, etc.)
 
 DESIGN DECISIONS:
 -----------------
@@ -70,7 +70,7 @@ def get_ec2_client_for_user(user_role: str, user_id: int):
     Otherwise, returns the default shared client.
     
     Args:
-        user_role: CloudSim user role (Admin, Developer, DevOps Engineer, User)
+        user_role: CloudSim user role (Admin, DevOps Engineer, User)
         user_id: User ID for session naming
         
     Returns:

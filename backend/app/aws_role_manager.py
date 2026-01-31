@@ -2,7 +2,7 @@
 AWS Role Manager for CloudSim.
 
 Provides role-based AWS access using STS AssumeRole.
-Maps CloudSim user roles (Admin, Developer, User) to IAM roles.
+Maps CloudSim user roles (Admin, DevOps Engineer, User) to IAM roles.
 
 USAGE:
     from .aws_role_manager import get_aws_client_for_user
@@ -126,7 +126,7 @@ def get_role_arn_for_user(user_role: str) -> Optional[str]:
     Map CloudSim user role to IAM role ARN.
     
     Args:
-        user_role: CloudSim role (Admin, Developer, DevOps Engineer, User)
+        user_role: CloudSim role (Admin, DevOps Engineer, User)
         
     Returns:
         IAM role ARN or None if role-based access is disabled
@@ -136,8 +136,7 @@ def get_role_arn_for_user(user_role: str) -> Optional[str]:
     
     role_mapping = {
         'Admin': settings.aws_role_admin,
-        'Developer': settings.aws_role_developer,
-        'DevOps Engineer': settings.aws_role_devops,  # DevOps has create permissions
+        'DevOps Engineer': settings.aws_role_devops,
         'User': settings.aws_role_readonly,
     }
     

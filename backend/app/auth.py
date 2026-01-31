@@ -82,7 +82,7 @@ class UserRead(BaseModel):
     """Response model for user data (excludes password)."""
     id: int
     email: str
-    role: str  # Admin, Developer, DevOps Engineer, User
+    role: str  # Admin, DevOps Engineer, User
     is_active: bool
 
     class Config:
