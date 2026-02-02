@@ -22,8 +22,8 @@
 # - GET    /api/ec2/costs/summary                - Monthly cost summary
 #
 # ACCESS CONTROL:
-# - Admin: Full access to all instances
-# - DevOps Engineer: Full access to all instances
+# - Admin: Full access to all instances (and user management)
+# - DevOps Engineer: Full EC2 access (create, start, stop, reboot, terminate)
 # - User: Access only to instances they created (via CreatedBy tag)
 # =============================================================================
 

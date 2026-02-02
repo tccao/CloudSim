@@ -5,9 +5,9 @@
 // and advanced settings. Implements role-based access control (RBAC).
 //
 // ROLES:
-// - Admin: Full access (user management, all settings)
-// - DevOps Engineer: Read/write instance operations, read-only admin settings
-// - User: Read-only access to instances and basic settings
+// - Admin: Full access (user management CRUD, all EC2 operations, all settings)
+// - DevOps Engineer: Full EC2 operations (including terminate), NO user management
+// - User: Access only to their own instances (via CreatedBy tag)
 //
 // API CALLS:
 // - adminApi.listUsers()   -> GET /api/admin/users

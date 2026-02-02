@@ -5,9 +5,9 @@
 # Maps CloudSim user roles to IAM roles for fine-grained access control.
 #
 # ROLE MAPPING:
-# - Admin        -> aws_role_admin (Full EC2 access)
-# - DevOps Engineer -> aws_role_devops (EC2 manage, no terminate)
-# - User         -> aws_role_readonly (View only)
+# - Admin           -> aws_role_admin (Full EC2 + user management)
+# - DevOps Engineer -> aws_role_devops (Full EC2 access including terminate, NO user management)
+# - User            -> aws_role_readonly (Own instances only)
 #
 # USAGE:
 #   from .aws_role_manager import get_aws_client_for_user

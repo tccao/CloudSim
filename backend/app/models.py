@@ -8,8 +8,8 @@
 # - Instance: AWS EC2 instances synced to local database
 #
 # ROLES (User.role):
-# - Admin: Full access to all resources and user management
-# - DevOps Engineer: Manage instances, view monitoring, no user management
+# - Admin: Full access to all resources AND user management (CRUD users)
+# - DevOps Engineer: Full EC2 access (create, start, stop, terminate) but NO user management
 # - User: View/manage only their own instances
 # =============================================================================
 

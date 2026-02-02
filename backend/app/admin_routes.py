@@ -12,8 +12,8 @@
 # ROLE REQUIREMENT: Admin only (enforced via require_admin dependency)
 #
 # AVAILABLE ROLES:
-# - Admin: Full access to all resources and user management
-# - DevOps Engineer: Manage instances, view monitoring
+# - Admin: Full access to all resources AND user management (CRUD users)
+# - DevOps Engineer: Full EC2 access (terminate included) but NO user management
 # - User: View/manage only their own instances
 # =============================================================================
 
