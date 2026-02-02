@@ -1,41 +1,54 @@
-"""
-AWS EC2 Service Layer for CloudSim.
+# =============================================================================
+# aws_service.py - AWS Service Layer
+# =============================================================================
+# Abstraction layer over Boto3 for EC2, CloudWatch, and Cost Explorer operations.
+#
+# PROVIDES:
+# - EC2 instance management (list, get, create, start, stop, reboot, terminate)
+# - CloudWatch metrics retrieval
+# - Cost Explorer data retrieval
+#
+# CREDENTIAL CHAIN (in priority order):
+# 1. Explicit credentials in .env (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+# 2. AWS profile in .env (AWS_PROFILE)
+# 3. Default boto3 chain (~/.aws/credentials, IAM role, etc.)
+#
+# ROLE-BASED ACCESS:
+# When ENABLE_ROLE_BASED_ACCESS=true in .env, users get AWS clients with
+# permissions based on their CloudSim role (Admin, DevOps Engineer, User).
+#
+# DESIGN DECISIONS:
+# 1. Centralized config via config.py
+# 2. Flexible credential handling for different environments
+# 3. Returns typed dictionaries for consistency
+# 4. Optional role-based access via STS AssumeRole
+# =============================================================================
 
-Provides abstraction over Boto3 for EC2 operations.
 
-CREDENTIAL CHAIN (in order of priority):
-1. Explicit credentials in .env (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
-2. AWS profile in .env (AWS_PROFILE)
-3. Default boto3 chain (~/.aws/credentials, IAM role, etc.)
-
-ROLE-BASED ACCESS:
-When ENABLE_ROLE_BASED_ACCESS=true, users get AWS clients with
-permissions based on their CloudSim role (Admin, DevOps Engineer, User, etc.)
-
-DESIGN DECISIONS:
------------------
-1. Centralized config via config.py
-2. Flexible credential handling for different environments
-3. Returns typed dictionaries for consistency
-4. Optional role-based access via STS AssumeRole
-"""
-
+# =============================================================================
+# IMPORTS
+# =============================================================================
 import boto3
 from botocore.exceptions import ClientError
 from typing import Optional
-import os
 
 from .config import settings
 
 
+# =============================================================================
+# BOTO3 SESSION SETUP
+# =============================================================================
 def _get_boto3_session() -> boto3.Session:
     """
     Create a boto3 session based on configuration.
     
-    Priority:
+    Credential Priority:
     1. Explicit credentials (AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY)
     2. Named profile (AWS_PROFILE)
-    3. Default credential chain
+    3. Default credential chain (~/.aws/credentials, instance role, etc.)
+    
+    Returns:
+        Configured boto3 Session
     """
     if settings.aws_access_key_id and settings.aws_secret_access_key:
         # Use explicit credentials from .env
@@ -46,7 +59,7 @@ def _get_boto3_session() -> boto3.Session:
             region_name=settings.aws_region,
         )
     elif settings.aws_profile:
-        # Use named profile
+        # Use named profile from ~/.aws/credentials
         return boto3.Session(
             profile_name=settings.aws_profile,
             region_name=settings.aws_region,
@@ -56,12 +69,18 @@ def _get_boto3_session() -> boto3.Session:
         return boto3.Session(region_name=settings.aws_region)
 
 
+# =============================================================================
+# DEFAULT CLIENTS
+# =============================================================================
 # Create session and default clients (used when role-based access is disabled)
 _session = _get_boto3_session()
 ec2 = _session.client("ec2")
 ec2_resource = _session.resource("ec2")
 
 
+# =============================================================================
+# ROLE-BASED CLIENT FACTORIES
+# =============================================================================
 def get_ec2_client_for_user(user_role: str, user_id: int):
     """
     Get EC2 client based on user role.
@@ -87,7 +106,16 @@ def get_ec2_client_for_user(user_role: str, user_id: int):
 
 
 def get_cloudwatch_client_for_user(user_role: str, user_id: int):
-    """Get CloudWatch client based on user role."""
+    """
+    Get CloudWatch client based on user role.
+    
+    Args:
+        user_role: CloudSim user role
+        user_id: User ID for session naming
+        
+    Returns:
+        boto3 CloudWatch client
+    """
     if settings.enable_role_based_access:
         from .aws_role_manager import get_aws_client_for_user
         role_client = get_aws_client_for_user('cloudwatch', user_role, user_id)
@@ -98,7 +126,16 @@ def get_cloudwatch_client_for_user(user_role: str, user_id: int):
 
 
 def get_cost_explorer_client_for_user(user_role: str, user_id: int):
-    """Get Cost Explorer client based on user role."""
+    """
+    Get Cost Explorer client based on user role.
+    
+    Args:
+        user_role: CloudSim user role
+        user_id: User ID for session naming
+        
+    Returns:
+        boto3 Cost Explorer client
+    """
     if settings.enable_role_based_access:
         from .aws_role_manager import get_aws_client_for_user
         role_client = get_aws_client_for_user('ce', user_role, user_id)
@@ -108,10 +145,23 @@ def get_cost_explorer_client_for_user(user_role: str, user_id: int):
     return cost_explorer
 
 
+# =============================================================================
+# EC2 OPERATIONS - List Instances
+# =============================================================================
 def list_instances() -> list[dict]:
     """
     List all EC2 instances in the configured region.
-    Returns simplified instance data.
+    
+    Includes tags for ownership filtering (CreatedBy tag).
+    
+    Returns:
+        List of instance dicts with:
+        - instance_id, name, instance_type, state
+        - public_ip, private_ip, launch_time, availability_zone
+        - tags (for ownership filtering)
+    
+    Raises:
+        Exception: If AWS API call fails
     """
     try:
         response = ec2.describe_instances()
@@ -119,9 +169,12 @@ def list_instances() -> list[dict]:
         
         for reservation in response.get("Reservations", []):
             for instance in reservation.get("Instances", []):
-                # Get instance name from tags
+                # Get all tags
+                tags = instance.get("Tags", [])
+                
+                # Extract name from tags
                 name = ""
-                for tag in instance.get("Tags", []):
+                for tag in tags:
                     if tag["Key"] == "Name":
                         name = tag["Value"]
                         break
@@ -135,6 +188,7 @@ def list_instances() -> list[dict]:
                     "private_ip": instance.get("PrivateIpAddress"),
                     "launch_time": instance.get("LaunchTime").isoformat() if instance.get("LaunchTime") else None,
                     "availability_zone": instance["Placement"]["AvailabilityZone"],
+                    "tags": tags,  # Include tags for ownership filtering
                 })
         
         return instances
@@ -142,13 +196,30 @@ def list_instances() -> list[dict]:
         raise Exception(f"Failed to list instances: {e}")
 
 
+# =============================================================================
+# EC2 OPERATIONS - Get Instance Details
+# =============================================================================
 def get_instance(instance_id: str) -> Optional[dict]:
-    """Get detailed information for a specific instance."""
+    """
+    Get detailed information for a specific EC2 instance.
+    
+    Includes network, storage, and metadata details.
+    
+    Args:
+        instance_id: EC2 instance ID (e.g., i-0abc123def456)
+        
+    Returns:
+        Instance dict with full details, or None if not found
+        
+    Raises:
+        Exception: If AWS API call fails
+    """
     try:
         response = ec2.describe_instances(InstanceIds=[instance_id])
+        
         for reservation in response.get("Reservations", []):
             for instance in reservation.get("Instances", []):
-                # Basic info
+                # Extract name from tags
                 name = ""
                 tags = instance.get("Tags", [])
                 for tag in tags:
@@ -156,9 +227,13 @@ def get_instance(instance_id: str) -> Optional[dict]:
                         name = tag["Value"]
                         break
                 
-                # Fetch Volume Details
+                # Fetch volume details
                 block_devices = []
-                volume_ids = [bd["Ebs"]["VolumeId"] for bd in instance.get("BlockDeviceMappings", []) if "Ebs" in bd]
+                volume_ids = [
+                    bd["Ebs"]["VolumeId"] 
+                    for bd in instance.get("BlockDeviceMappings", []) 
+                    if "Ebs" in bd
+                ]
                 
                 if volume_ids:
                     try:
@@ -179,12 +254,18 @@ def get_instance(instance_id: str) -> Optional[dict]:
                                 "iops": vol.get("Iops", 0),
                                 "throughput": vol.get("Throughput", 0),
                                 "encrypted": vol.get("Encrypted", False),
-                                "delete_on_termination": next((bd["Ebs"]["DeleteOnTermination"] for bd in instance.get("BlockDeviceMappings", []) if "Ebs" in bd and bd["Ebs"]["VolumeId"] == vol["VolumeId"]), False)
+                                "delete_on_termination": next(
+                                    (bd["Ebs"]["DeleteOnTermination"] 
+                                     for bd in instance.get("BlockDeviceMappings", []) 
+                                     if "Ebs" in bd and bd["Ebs"]["VolumeId"] == vol["VolumeId"]),
+                                    False
+                                )
                             })
                     except ClientError:
-                        pass # Ignore volume errors if permissions missing
+                        pass  # Ignore volume errors if permissions missing
                 
                 return {
+                    # Basic info
                     "instance_id": instance["InstanceId"],
                     "name": name,
                     "instance_type": instance["InstanceType"],
@@ -211,15 +292,30 @@ def get_instance(instance_id: str) -> Optional[dict]:
                     
                     # Metadata
                     "tags": tags,
-                    "iam_role": instance.get("IamInstanceProfile", {}).get("Arn", "").split("/")[-1] if instance.get("IamInstanceProfile") else None
+                    "iam_role": (
+                        instance.get("IamInstanceProfile", {}).get("Arn", "").split("/")[-1] 
+                        if instance.get("IamInstanceProfile") else None
+                    )
                 }
+        
         return None
     except ClientError as e:
         raise Exception(f"Failed to get instance {instance_id}: {e}")
 
 
+# =============================================================================
+# EC2 OPERATIONS - Instance Lifecycle
+# =============================================================================
 def start_instance(instance_id: str) -> dict:
-    """Start a stopped EC2 instance."""
+    """
+    Start a stopped EC2 instance.
+    
+    Args:
+        instance_id: EC2 instance ID
+        
+    Returns:
+        Action response with message and instance_id
+    """
     try:
         ec2.start_instances(InstanceIds=[instance_id])
         return {"message": f"Starting instance {instance_id}", "instance_id": instance_id}
@@ -228,7 +324,15 @@ def start_instance(instance_id: str) -> dict:
 
 
 def stop_instance(instance_id: str) -> dict:
-    """Stop a running EC2 instance."""
+    """
+    Stop a running EC2 instance.
+    
+    Args:
+        instance_id: EC2 instance ID
+        
+    Returns:
+        Action response with message and instance_id
+    """
     try:
         ec2.stop_instances(InstanceIds=[instance_id])
         return {"message": f"Stopping instance {instance_id}", "instance_id": instance_id}
@@ -237,7 +341,15 @@ def stop_instance(instance_id: str) -> dict:
 
 
 def reboot_instance(instance_id: str) -> dict:
-    """Reboot an EC2 instance."""
+    """
+    Reboot an EC2 instance.
+    
+    Args:
+        instance_id: EC2 instance ID
+        
+    Returns:
+        Action response with message and instance_id
+    """
     try:
         ec2.reboot_instances(InstanceIds=[instance_id])
         return {"message": f"Rebooting instance {instance_id}", "instance_id": instance_id}
@@ -246,7 +358,17 @@ def reboot_instance(instance_id: str) -> dict:
 
 
 def terminate_instance(instance_id: str) -> dict:
-    """Terminate an EC2 instance."""
+    """
+    Terminate (permanently delete) an EC2 instance.
+    
+    WARNING: This action is irreversible!
+    
+    Args:
+        instance_id: EC2 instance ID
+        
+    Returns:
+        Action response with message and instance_id
+    """
     try:
         ec2.terminate_instances(InstanceIds=[instance_id])
         return {"message": f"Terminating instance {instance_id}", "instance_id": instance_id}
@@ -254,6 +376,9 @@ def terminate_instance(instance_id: str) -> dict:
         raise Exception(f"Failed to terminate instance: {e}")
 
 
+# =============================================================================
+# EC2 OPERATIONS - Create Instance
+# =============================================================================
 def create_instance(
     name: str,
     instance_type: str = "t2.micro",
@@ -266,18 +391,29 @@ def create_instance(
     """
     Create a new EC2 instance.
     
+    Automatically tags instance with:
+    - Name: The provided name
+    - CreatedBy: User ID (for ownership tracking)
+    - CreatedByEmail: User email (for auditing)
+    - ManagedBy: "CloudSim"
+    
     Args:
         name: Name tag for the instance
         instance_type: EC2 instance type (default: t2.micro - free tier)
-        image_id: AMI ID (defaults to Amazon Linux 2023 in us-east-1)
-        user_id: CloudSim user ID for instance isolation
+        image_id: AMI ID (defaults to latest Amazon Linux 2023)
+        user_id: CloudSim user ID for instance ownership
         user_email: CloudSim user email for auditing
-        subnet_id: VPC subnet to launch in (defaults to cloudsim_subnet_id from config)
-        security_group_ids: Security groups to attach (defaults to cloudsim_security_group_id from config)
+        subnet_id: VPC subnet to launch in (defaults from config)
+        security_group_ids: Security groups to attach (defaults from config)
+        
+    Returns:
+        Action response with instance_id and details
+        
+    Raises:
+        Exception: If no suitable AMI found or AWS API fails
     """
-    # Default to Amazon Linux 2023 AMI in us-east-1
+    # Get latest Amazon Linux 2023 AMI if not specified
     if not image_id:
-        # Get latest Amazon Linux 2023 AMI
         response = ec2.describe_images(
             Owners=["amazon"],
             Filters=[
@@ -291,14 +427,14 @@ def create_instance(
         else:
             raise Exception("No suitable AMI found")
     
-    # Use CloudSim VPC settings if configured and not explicitly provided
+    # Use CloudSim VPC settings if configured
     if not subnet_id and settings.cloudsim_subnet_id:
         subnet_id = settings.cloudsim_subnet_id
     
     if not security_group_ids and settings.cloudsim_security_group_id:
         security_group_ids = [settings.cloudsim_security_group_id]
     
-    # Build tags - always include Name, optionally include creator info
+    # Build tags for ownership tracking
     tags = [{"Key": "Name", "Value": name}]
     
     if user_id is not None:
@@ -307,10 +443,9 @@ def create_instance(
     if user_email:
         tags.append({"Key": "CreatedByEmail", "Value": user_email})
     
-    # Add CloudSim identifier
     tags.append({"Key": "ManagedBy", "Value": "CloudSim"})
     
-    # Build instance launch parameters
+    # Build launch parameters
     launch_params = {
         "ImageId": image_id,
         "InstanceType": instance_type,
@@ -347,8 +482,18 @@ def create_instance(
         raise Exception(f"Failed to create instance: {e}")
 
 
+# =============================================================================
+# EC2 OPERATIONS - Instance Types
+# =============================================================================
 def get_available_instance_types() -> list[str]:
-    """Return list of allowed instance types for CloudSim."""
+    """
+    Return list of allowed instance types for CloudSim.
+    
+    Limited to t2 family to control costs.
+    
+    Returns:
+        List of allowed instance type strings
+    """
     return [
         "t2.nano",     
         "t2.micro",    
@@ -358,22 +503,29 @@ def get_available_instance_types() -> list[str]:
     ]
 
 
-# ============================================================================
+# =============================================================================
 # CLOUDWATCH METRICS
-# ============================================================================
+# =============================================================================
 cloudwatch = _session.client("cloudwatch")
 
 
 def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
     """
-    Get CloudWatch metrics for an EC2 instance.
+    Get CloudWatch metrics history for an EC2 instance.
+    
+    Metrics retrieved:
+    - CPUUtilization (%)
+    - NetworkIn (bytes)
+    - NetworkOut (bytes)
+    - DiskReadOps (count)
+    - DiskWriteOps (count)
     
     Args:
         instance_id: EC2 instance ID
-        period_minutes: How far back to fetch metrics (default 60 min)
+        period_minutes: How far back to fetch (default: 60 min)
     
     Returns:
-        Dict with cpu_utilization, network_in, network_out data points
+        Dict with metric arrays, each containing {timestamp, value} objects
     """
     from datetime import datetime, timedelta
     
@@ -381,6 +533,7 @@ def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
     start_time = end_time - timedelta(minutes=period_minutes)
     
     def get_metric(metric_name: str, unit: str = "Percent") -> list:
+        """Fetch a single metric from CloudWatch."""
         try:
             response = cloudwatch.get_metric_statistics(
                 Namespace="AWS/EC2",
@@ -392,7 +545,7 @@ def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
                 Statistics=["Average"],
                 Unit=unit,
             )
-            # Sort by timestamp and return values
+            # Sort by timestamp and format
             datapoints = sorted(response.get("Datapoints", []), key=lambda x: x["Timestamp"])
             return [
                 {
@@ -418,11 +571,20 @@ def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
 def get_instance_current_metrics(instance_id: str) -> dict:
     """
     Get current (latest) metrics for an EC2 instance.
-    Useful for dashboard overview.
+    
+    Useful for dashboard quick stats. Fetches last 15 minutes of data
+    and returns the most recent value for each metric.
+    
+    Args:
+        instance_id: EC2 instance ID
+        
+    Returns:
+        Dict with cpu_percent, network_in_bytes, network_out_bytes
     """
     metrics = get_instance_metrics(instance_id, period_minutes=15)
     
     def get_latest(data: list) -> float:
+        """Get the last value from a metric array."""
         return data[-1]["value"] if data else 0
     
     return {
@@ -433,17 +595,27 @@ def get_instance_current_metrics(instance_id: str) -> dict:
     }
 
 
-# ============================================================================
+# =============================================================================
 # COST EXPLORER
-# ============================================================================
-# Note: Cost Explorer is only available in us-east-1
+# =============================================================================
+# Note: Cost Explorer API is only available in us-east-1
 cost_explorer = _session.client("ce", region_name="us-east-1")
 
 
 def get_daily_costs(days: int = 7) -> list[dict]:
     """
     Get daily cost breakdown for the last N days.
-    Returns list of {date, compute, storage, network, total}.
+    
+    Categorizes costs into:
+    - Compute: EC2 instances
+    - Storage: S3, EBS
+    - Network: Data transfer, CloudFront
+    
+    Args:
+        days: Number of days to fetch (default: 7)
+        
+    Returns:
+        List of daily cost dicts: {date, compute, storage, network, total}
     """
     from datetime import datetime, timedelta
     
@@ -476,6 +648,7 @@ def get_daily_costs(days: int = 7) -> list[dict]:
                 amount = float(group["Metrics"]["BlendedCost"]["Amount"])
                 day_total += amount
                 
+                # Categorize by service
                 if "EC2" in service:
                     compute += amount
                 elif "S3" in service or "EBS" in service:
@@ -499,7 +672,15 @@ def get_daily_costs(days: int = 7) -> list[dict]:
 
 def get_monthly_summary() -> dict:
     """
-    Get current month's cost summary.
+    Get current month's cost summary with projection.
+    
+    Calculates:
+    - month_to_date: Total spend so far this month
+    - projected_monthly: Estimated end-of-month total
+    - days_elapsed: Days since month start
+    
+    Returns:
+        Cost summary dict
     """
     from datetime import datetime
     

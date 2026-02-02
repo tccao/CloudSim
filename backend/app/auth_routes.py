@@ -1,18 +1,28 @@
-"""
-Authentication routes for CloudSim.
+# =============================================================================
+# auth_routes.py - Authentication API Endpoints
+# =============================================================================
+# Authentication routes for user registration, login, and profile access.
+#
+# ENDPOINTS:
+# - POST /api/auth/register - Create new user account
+# - POST /api/auth/login    - Authenticate and get JWT token
+# - GET  /api/auth/me       - Get current user info (protected)
+#
+# DESIGN DECISIONS:
+# - Separate router for auth: Clean separation of concerns
+# - OAuth2PasswordRequestForm: Standard form for username/password submission
+# - Email used as "username": More intuitive for users
+#
+# SECURITY:
+# - Same error message for invalid email or password (prevents enumeration)
+# - Passwords are hashed with bcrypt before storage
+# - JWT tokens expire after 30 minutes (configurable)
+# =============================================================================
 
-Endpoints:
-- POST /api/auth/register - Create new user account
-- POST /api/auth/login - Authenticate and get JWT token
-- GET /api/auth/me - Get current user info (protected)
 
-DESIGN DECISIONS:
------------------
-1. Separate router for auth - Clean separation of concerns
-2. OAuth2PasswordRequestForm - Standard form for username/password submission
-3. Email used as "username" - More intuitive for users
-"""
-
+# =============================================================================
+# IMPORTS
+# =============================================================================
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -29,25 +39,40 @@ from .auth import (
     get_current_user,
 )
 
+
+# =============================================================================
+# ROUTER SETUP
+# =============================================================================
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
-# ============================================================================
-# REGISTER ENDPOINT
-# ============================================================================
+# =============================================================================
+# POST /api/auth/register - User Registration
+# =============================================================================
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user account.
     
-    Process:
+    REQUEST BODY:
+        {
+            "email": "user@example.com",
+            "password": "securepassword123"
+        }
+    
+    PROCESS:
     1. Check if email already exists (409 Conflict if so)
     2. Hash the password (never store plain text!)
-    3. Create user record in database
+    3. Create user record in database with default "User" role
     4. Return user data (without password)
     
-    Security note: We return 409 for existing emails. In high-security apps,
+    SECURITY NOTE:
+    We return 409 for existing emails. In high-security apps,
     you might return 201 always to prevent email enumeration attacks.
+    
+    RETURNS:
+        201: User created successfully
+        409: Email already registered
     """
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
@@ -71,9 +96,9 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-# ============================================================================
-# LOGIN ENDPOINT
-# ============================================================================
+# =============================================================================
+# POST /api/auth/login - User Login
+# =============================================================================
 @router.post("/login", response_model=Token)
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -82,15 +107,28 @@ def login(
     """
     Authenticate user and return JWT token.
     
-    Uses OAuth2PasswordRequestForm which expects:
-    - username (we use email here)
-    - password
+    REQUEST (form-urlencoded):
+        username=user@example.com&password=securepassword123
     
-    Returns JWT token to be used in Authorization header:
-    Authorization: Bearer <token>
+    NOTE: OAuth2 spec uses "username" field, we accept email here.
     
-    Security: Same error message for invalid email or password
-    to prevent user enumeration.
+    RESPONSE:
+        {
+            "access_token": "eyJhbGciOiJIUzI1NiIs...",
+            "token_type": "bearer"
+        }
+    
+    USAGE:
+    Include token in subsequent requests:
+        Authorization: Bearer <access_token>
+    
+    SECURITY:
+    Same error message for invalid email or password to prevent user enumeration.
+    
+    RETURNS:
+        200: Login successful, token returned
+        401: Incorrect email or password
+        403: Account is disabled
     """
     # Find user by email (username field contains email)
     user = db.query(User).filter(User.email == form_data.username).first()
@@ -116,18 +154,29 @@ def login(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# ============================================================================
-# GET CURRENT USER (Protected Route Example)
-# ============================================================================
+# =============================================================================
+# GET /api/auth/me - Get Current User
+# =============================================================================
 @router.get("/me", response_model=UserRead)
 def get_me(current_user: User = Depends(get_current_user)):
     """
     Get current authenticated user's information.
     
-    This is a protected endpoint - requires valid JWT token.
-    The get_current_user dependency handles token validation.
+    REQUIRES: Valid JWT token in Authorization header
     
-    Usage example:
-    curl -H "Authorization: Bearer <token>" http://localhost:8000/api/auth/me
+    USAGE:
+        curl -H "Authorization: Bearer <token>" http://localhost:8000/api/auth/me
+    
+    RESPONSE:
+        {
+            "id": 1,
+            "email": "user@example.com",
+            "role": "User",
+            "is_active": true
+        }
+    
+    RETURNS:
+        200: User data returned
+        401: Invalid or missing token
     """
     return current_user

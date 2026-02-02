@@ -1,18 +1,30 @@
-"""
-Configuration module for CloudSim Backend.
+# =============================================================================
+# config.py - Application Configuration
+# =============================================================================
+# Centralized configuration for CloudSim backend.
+# Loads environment variables from .env file using Pydantic BaseSettings.
+#
+# CONFIGURATION SOURCES (in priority order):
+# 1. Environment variables
+# 2. .env file
+# 3. Default values
+#
+# AWS CREDENTIALS (in priority order):
+# 1. Production: AWS Secrets Manager (prod/cloudsim)
+# 2. Development: root-credentials/credentials file
+# 3. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+# 4. AWS profile (~/.aws/credentials)
+#
+# USAGE:
+#   from .config import settings
+#   print(settings.aws_region)
+#   print(settings.cors_origins)
+# =============================================================================
 
-Loads environment variables from .env file and provides
-typed configuration classes for different parts of the application.
 
-AWS CREDENTIALS:
-    - Production: AWS Secrets Manager (prod/cloudsim)
-    - Development: root-credentials/credentials file
-
-USAGE:
-    from .config import settings, root_access_key, root_secret_key
-    print(settings.aws_region)
-"""
-
+# =============================================================================
+# IMPORTS
+# =============================================================================
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from typing import Optional, Tuple
@@ -29,7 +41,14 @@ import json
 # =============================================================================
 
 def get_root_credentials() -> Tuple[str, str]:
-    """Get root AWS credentials from Secrets Manager (for production)."""
+    """
+    Get root AWS credentials from Secrets Manager (for production).
+    
+    Retrieves credentials stored in AWS Secrets Manager under 'prod/cloudsim'.
+    
+    Returns:
+        Tuple of (access_key_id, secret_access_key)
+    """
     import boto3
     client = boto3.client('secretsmanager', region_name='us-east-1')
     response = client.get_secret_value(SecretId='prod/cloudsim')
@@ -38,7 +57,16 @@ def get_root_credentials() -> Tuple[str, str]:
 
 
 def load_local_credentials() -> Tuple[Optional[str], Optional[str]]:
-    """Load AWS credentials from root-credentials/credentials file (for development)."""
+    """
+    Load AWS credentials from root-credentials/credentials file (for development).
+    
+    Looks for credentials in:
+    1. root-credentials/credentials file (INI format, [root] section)
+    2. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+    
+    Returns:
+        Tuple of (access_key_id, secret_access_key) or (None, None)
+    """
     config = configparser.ConfigParser()
     # Path relative to this file: backend/app/config.py -> root-credentials/credentials
     creds_file = os.path.join(
@@ -59,6 +87,9 @@ def load_local_credentials() -> Tuple[Optional[str], Optional[str]]:
     return os.getenv('AWS_ACCESS_KEY_ID'), os.getenv('AWS_SECRET_ACCESS_KEY')
 
 
+# =============================================================================
+# CREDENTIAL INITIALIZATION
+# =============================================================================
 # Load credentials based on environment
 if os.getenv('ENVIRONMENT', 'development').lower() == 'production':
     root_access_key, root_secret_key = get_root_credentials()
@@ -66,6 +97,9 @@ else:
     root_access_key, root_secret_key = load_local_credentials()
 
 
+# =============================================================================
+# SETTINGS CLASS
+# =============================================================================
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables.
@@ -135,13 +169,20 @@ class Settings(BaseSettings):
     enable_cost_explorer: bool = True
     enable_role_based_access: bool = False  # Set to True to enable IAM role assumption
     
+    # =========================================================================
+    # VALIDATORS
+    # =========================================================================
     @field_validator('secret_key')
     @classmethod
     def validate_secret_key(cls, v: str, info) -> str:
         """
         Validate SECRET_KEY security.
-        - In production: must be at least 32 characters and not the default
-        - In development: warn if using default key
+        
+        Rules:
+        - Production: Must be at least 32 characters and not the default
+        - Development: Warn if using default key
+        
+        Generate a secure key with: openssl rand -hex 32
         """
         default_key = "your-secret-key"
         
@@ -168,6 +209,9 @@ class Settings(BaseSettings):
         
         return v
     
+    # =========================================================================
+    # PROPERTIES
+    # =========================================================================
     @property
     def cors_origins(self) -> list[str]:
         """Parse comma-separated origins into list."""
@@ -183,25 +227,41 @@ class Settings(BaseSettings):
         """Check if running in development mode."""
         return self.environment.lower() == "development"
     
+    # =========================================================================
+    # PYDANTIC CONFIG
+    # =========================================================================
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
 
 
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
 def generate_secret_key() -> str:
-    """Generate a cryptographically secure secret key."""
+    """
+    Generate a cryptographically secure secret key.
+    
+    Usage:
+        python -c "from app.config import generate_secret_key; print(generate_secret_key())"
+    """
     return secrets.token_hex(32)
 
 
+# =============================================================================
+# SETTINGS SINGLETON
+# =============================================================================
 @lru_cache()
 def get_settings() -> Settings:
     """
     Cached settings instance.
+    
     Use this function to get settings throughout the application.
+    The @lru_cache decorator ensures the settings are only loaded once.
     """
     return Settings()
 
 
-# Convenience alias
+# Convenience alias for direct import
 settings = get_settings()

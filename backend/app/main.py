@@ -1,12 +1,27 @@
-"""
-CloudSim API - Main FastAPI Application
+# =============================================================================
+# main.py - FastAPI Application Entry Point
+# =============================================================================
+# Main FastAPI application with middleware, routers, and startup configuration.
+#
+# FEATURES:
+# - Security headers middleware (XSS, CSRF protection)
+# - Dynamic CORS configuration from settings
+# - Health check endpoints for load balancers
+# - Automatic database table creation on startup
+#
+# API ROUTERS:
+# - /api/auth/*  - Authentication (login, register, me)
+# - /api/admin/* - Admin user management
+# - /api/ec2/*   - EC2 instance operations
+#
+# STARTUP:
+#   uvicorn app.main:app --reload
+# =============================================================================
 
-Security Features:
-- Dynamic CORS from config
-- Security headers middleware
-- Health check endpoints
-"""
 
+# =============================================================================
+# IMPORTS
+# =============================================================================
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,15 +32,28 @@ from .admin_routes import router as admin_router
 from .ec2_routes import router as ec2_router
 from .db import engine, Base
 
-# Create database tables on startup
+
+# =============================================================================
+# DATABASE INITIALIZATION
+# =============================================================================
+# Create all database tables on startup (if they don't exist)
 Base.metadata.create_all(bind=engine)
 
 
-# ============================================================================
+# =============================================================================
 # SECURITY HEADERS MIDDLEWARE
-# ============================================================================
+# =============================================================================
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses."""
+    """
+    Add security headers to all responses.
+    
+    Headers added:
+    - X-Content-Type-Options: nosniff (prevent MIME sniffing)
+    - X-Frame-Options: DENY (prevent clickjacking)
+    - X-XSS-Protection: 1; mode=block (XSS filter)
+    - Referrer-Policy: strict-origin-when-cross-origin
+    - Permissions-Policy: Disable unnecessary browser features
+    """
     
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
@@ -44,9 +72,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# ============================================================================
+# =============================================================================
 # APPLICATION SETUP
-# ============================================================================
+# =============================================================================
 app = FastAPI(
     title="CloudSim API",
     version="1.0.0",
@@ -55,7 +83,7 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
 )
 
-# Add security headers
+# Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Configure CORS from settings
@@ -68,32 +96,49 @@ app.add_middleware(
 )
 
 
-# ============================================================================
+# =============================================================================
 # HEALTH CHECK ENDPOINTS
-# ============================================================================
+# =============================================================================
 @app.get("/health")
 def health_check():
-    """Basic health check for load balancers."""
+    """
+    Basic health check for load balancers.
+    
+    Returns:
+        status: "healthy"
+        environment: Current environment (development/production)
+    """
     return {
         "status": "healthy",
         "environment": settings.environment,
     }
 
 
-# ============================================================================
+# =============================================================================
 # INCLUDE ROUTERS
-# ============================================================================
+# =============================================================================
+# Auth routes: /api/auth/login, /api/auth/register, /api/auth/me
 app.include_router(auth_router)
+
+# Admin routes: /api/admin/users (CRUD)
 app.include_router(admin_router)
+
+# EC2 routes: /api/ec2/instances, /api/ec2/costs, etc.
 app.include_router(ec2_router)
 
 
-# ============================================================================
+# =============================================================================
 # STARTUP EVENT
-# ============================================================================
+# =============================================================================
 @app.on_event("startup")
 async def startup_event():
-    """Log startup configuration."""
+    """
+    Log startup configuration.
+    
+    Logs:
+    - Environment mode (development/production)
+    - Configured CORS origins
+    """
     import logging
     logger = logging.getLogger("uvicorn")
     
