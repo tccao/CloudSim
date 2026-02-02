@@ -1,3 +1,28 @@
+// =============================================================================
+// LoginModal.tsx
+// =============================================================================
+// Authentication modal for user login and registration. Provides a login form
+// that authenticates users via JWT tokens from the backend auth API.
+//
+// API CALLS:
+// - UserContext.loginWithCredentials() -> POST /api/auth/login
+// - UserContext.register() -> POST /api/auth/register
+//
+// COMPONENT STRUCTURE:
+// └── LoginModal
+//     ├── Header (Logo + Title)
+//     ├── Error Alert (conditional)
+//     ├── Email Input
+//     ├── Password Input
+//     ├── Submit Button (Login/Register)
+//     └── Mode Toggle Button
+// =============================================================================
+
+
+// =============================================================================
+// IMPORTS
+// =============================================================================
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
@@ -7,11 +32,24 @@ import { Alert, AlertDescription } from './ui/alert';
 import { useUser } from '../contexts/UserContext';
 import { AlertCircle, Loader2, Cloud } from 'lucide-react';
 
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
 interface LoginModalProps {
   open: boolean;
 }
 
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
 export function LoginModal({ open }: LoginModalProps) {
+  // ---------------------------------------------------------------------------
+  // Context & State
+  // ---------------------------------------------------------------------------
   const { loginWithCredentials, register, error, clearError, isLoading } = useUser();
 
   const [email, setEmail] = useState('');
@@ -19,10 +57,12 @@ export function LoginModal({ open }: LoginModalProps) {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [localError, setLocalError] = useState('');
 
-  /**
-   * Handle login/registration with real backend
-   * Uses JWT auth via the auth API
-   */
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
+
+  // Handle login/registration with real backend
+  // Uses JWT auth via the auth API
   const handleSubmit = async () => {
     setLocalError('');
     clearError();
@@ -50,6 +90,10 @@ export function LoginModal({ open }: LoginModalProps) {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
     <Dialog open={open} onOpenChange={() => { }}>
       <DialogContent className="max-w-md">
@@ -68,6 +112,7 @@ export function LoginModal({ open }: LoginModalProps) {
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
+          {/* Error Alert */}
           {(localError || error) && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -75,6 +120,7 @@ export function LoginModal({ open }: LoginModalProps) {
             </Alert>
           )}
 
+          {/* Email Input */}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -91,6 +137,7 @@ export function LoginModal({ open }: LoginModalProps) {
             />
           </div>
 
+          {/* Password Input */}
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
@@ -107,6 +154,7 @@ export function LoginModal({ open }: LoginModalProps) {
             />
           </div>
 
+          {/* Submit Button */}
           <Button
             className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
             onClick={handleSubmit}
@@ -122,6 +170,7 @@ export function LoginModal({ open }: LoginModalProps) {
             )}
           </Button>
 
+          {/* Divider */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -133,6 +182,7 @@ export function LoginModal({ open }: LoginModalProps) {
             </div>
           </div>
 
+          {/* Mode Toggle Button */}
           <Button
             variant="outline"
             className="w-full"

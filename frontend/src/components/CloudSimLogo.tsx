@@ -1,3 +1,22 @@
+// =============================================================================
+// CloudSimLogo.tsx
+// =============================================================================
+// A presentational component that renders the CloudSim brand logo with an SVG
+// cloud icon and gradient text.
+//
+// API CALLS: None
+//
+// COMPONENT STRUCTURE:
+// └── CloudSimLogo
+//     ├── SVG Cloud Icon (gradient orange)
+//     └── Brand Text ("CloudSim" + tagline)
+// =============================================================================
+
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
 export function CloudSimLogo() {
   return (
     <div className="flex items-center gap-3">

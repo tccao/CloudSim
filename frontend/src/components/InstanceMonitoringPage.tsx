@@ -1,3 +1,33 @@
+// =============================================================================
+// InstanceMonitoringPage.tsx
+// =============================================================================
+// Monitoring dashboard for EC2 instances showing CloudWatch metrics, cost data,
+// and system logs. Includes charts for CPU, memory, network, disk, and costs.
+//
+// API CALLS:
+// - fetchInstances()       -> GET /api/ec2/instances
+// - getInstanceMetrics()   -> GET /api/ec2/instances/:id/metrics
+// - getDailyCosts()        -> GET /api/ec2/costs/daily
+// - getCostSummary()       -> GET /api/ec2/costs/summary
+//
+// COMPONENT STRUCTURE:
+// └── InstanceMonitoringPage
+//     ├── Header (Title, Instance Selector, Period, Refresh, Export)
+//     ├── Status Cards (CPU, Memory, Network, Disk, Cost)
+//     ├── Metric Tabs
+//     │   ├── CPU Tab (Area chart)
+//     │   ├── Memory Tab (Stacked area chart - mock)
+//     │   ├── Network Tab (Line chart)
+//     │   ├── Disk I/O Tab (Bar chart)
+//     │   └── Cost Tab (Area chart + Pie chart + Summary)
+//     └── System Logs Card (mock)
+// =============================================================================
+
+
+// =============================================================================
+// IMPORTS
+// =============================================================================
+
 import { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -9,7 +39,18 @@ import { Activity, Download, RefreshCw, DollarSign, AlertCircle, Loader2 } from 
 import { getInstanceMetrics, getDailyCosts, getCostSummary, type InstanceMetrics, type DailyCost, type CostSummary } from '../api/ec2';
 import { fetchInstances, type Instance } from '../api/instances';
 
-// MOCK DATA: Use this to avoid AWS Cost Explorer charges
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+// (Types are imported from api modules)
+
+
+// =============================================================================
+// CONSTANTS - Mock Data
+// =============================================================================
+
 const MOCK_DAILY_COSTS: DailyCost[] = [
   { date: '2025-11-08', compute: 1.5, storage: 0.5, network: 0.2, total: 2.2 },
   { date: '2025-11-09', compute: 1.8, storage: 0.6, network: 0.3, total: 2.7 },
@@ -42,6 +83,11 @@ const memoryData = [
   { time: '12:00', used: 768, available: 256 },
 ];
 
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
 const formatTime = (isoString: string): string => {
   const date = new Date(isoString);
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -53,7 +99,15 @@ const formatBytes = (bytes: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
 export function InstanceMonitoringPage() {
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
   const [instances, setInstances] = useState<Instance[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<string>('');
   const [metrics, setMetrics] = useState<InstanceMetrics | null>(null);
@@ -64,9 +118,14 @@ export function InstanceMonitoringPage() {
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [costsLoading, setCostsLoading] = useState(false);
 
+  // ---------------------------------------------------------------------------
+  // API Handlers - Load Instances
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
     const loadInstances = async () => {
       try {
+        // API CALL: GET /api/ec2/instances
         const data = await fetchInstances();
         setInstances(data);
         if (data.length > 0) setSelectedInstance(data[0].id);
@@ -79,11 +138,16 @@ export function InstanceMonitoringPage() {
     loadInstances();
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // API Handlers - Load Metrics
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
     if (!selectedInstance) return;
     const loadMetrics = async () => {
       setMetricsLoading(true);
       try {
+        // API CALL: GET /api/ec2/instances/:id/metrics
         const data = await getInstanceMetrics(selectedInstance, parseInt(period));
         setMetrics(data);
       } catch (err) {
@@ -95,12 +159,15 @@ export function InstanceMonitoringPage() {
     loadMetrics();
   }, [selectedInstance, period]);
 
-  // Fetch cost data on mount
+  // ---------------------------------------------------------------------------
+  // API Handlers - Load Costs
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
     const loadCosts = async () => {
       setCostsLoading(true);
       try {
-        // Real AWS Cost Explorer API calls
+        // API CALLS: GET /api/ec2/costs/daily + GET /api/ec2/costs/summary
         const [dailyCosts, summary] = await Promise.all([
           getDailyCosts(7),
           getCostSummary()
@@ -118,6 +185,10 @@ export function InstanceMonitoringPage() {
     };
     loadCosts();
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Computed Values - Chart Data
+  // ---------------------------------------------------------------------------
 
   const cpuData = metrics?.cpu_utilization.map(dp => ({
     time: formatTime(dp.timestamp),
@@ -148,11 +219,16 @@ export function InstanceMonitoringPage() {
   ];
   const weekTotal = costData.reduce((sum, d) => sum + d.total, 0);
 
-  // Refresh all data
+  // ---------------------------------------------------------------------------
+  // Handlers - Refresh
+  // ---------------------------------------------------------------------------
+
   const handleRefresh = async () => {
+    // Refresh metrics
     if (selectedInstance) {
       setMetricsLoading(true);
       try {
+        // API CALL: GET /api/ec2/instances/:id/metrics
         const data = await getInstanceMetrics(selectedInstance, parseInt(period));
         setMetrics(data);
       } catch (err) {
@@ -161,9 +237,11 @@ export function InstanceMonitoringPage() {
         setMetricsLoading(false);
       }
     }
+
+    // Refresh costs
     setCostsLoading(true);
     try {
-      // Real AWS Cost Explorer API calls
+      // API CALLS: GET /api/ec2/costs/daily + GET /api/ec2/costs/summary
       const [dailyCosts, summary] = await Promise.all([
         getDailyCosts(7),
         getCostSummary()
@@ -172,13 +250,16 @@ export function InstanceMonitoringPage() {
       setCostSummary(summary);
     } catch (err) {
       console.error('Failed to refresh costs:', err);
-      // Fallback to mock data if API fails
       setCostData(MOCK_DAILY_COSTS);
       setCostSummary(MOCK_COST_SUMMARY);
     } finally {
       setCostsLoading(false);
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // Render - Loading State
+  // ---------------------------------------------------------------------------
 
   if (loading) {
     return (
@@ -188,6 +269,10 @@ export function InstanceMonitoringPage() {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Render - Empty State
+  // ---------------------------------------------------------------------------
+
   if (instances.length === 0) {
     return (
       <div className="flex h-[400px] items-center justify-center flex-col gap-4">
@@ -196,6 +281,10 @@ export function InstanceMonitoringPage() {
       </div>
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Render - Main Content
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="space-y-6">
@@ -289,6 +378,7 @@ export function InstanceMonitoringPage() {
         </Card>
       </div>
 
+      {/* Loading Indicator */}
       {metricsLoading && (
         <div className="flex items-center justify-center py-4">
           <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
@@ -296,7 +386,7 @@ export function InstanceMonitoringPage() {
         </div>
       )}
 
-      {/* Charts */}
+      {/* Metric Charts Tabs */}
       <Tabs defaultValue="cpu" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="cpu">CPU</TabsTrigger>
@@ -306,6 +396,7 @@ export function InstanceMonitoringPage() {
           <TabsTrigger value="cost">Cost</TabsTrigger>
         </TabsList>
 
+        {/* CPU Tab */}
         <TabsContent value="cpu" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">CPU Utilization (%) - CloudWatch</h3>
@@ -327,6 +418,7 @@ export function InstanceMonitoringPage() {
           </Card>
         </TabsContent>
 
+        {/* Memory Tab */}
         <TabsContent value="memory" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">Memory Usage (MB) - Mock Data</h3>
@@ -344,6 +436,7 @@ export function InstanceMonitoringPage() {
           </Card>
         </TabsContent>
 
+        {/* Network Tab */}
         <TabsContent value="network" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">Network Traffic (KB/s) - CloudWatch</h3>
@@ -367,6 +460,7 @@ export function InstanceMonitoringPage() {
           </Card>
         </TabsContent>
 
+        {/* Disk I/O Tab */}
         <TabsContent value="disk" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">Disk I/O (ops/s) - CloudWatch</h3>
@@ -390,6 +484,7 @@ export function InstanceMonitoringPage() {
           </Card>
         </TabsContent>
 
+        {/* Cost Tab */}
         <TabsContent value="cost" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">Daily Cost Trend ($) - Mock Data</h3>
@@ -408,6 +503,7 @@ export function InstanceMonitoringPage() {
           </Card>
 
           <div className="grid grid-cols-2 gap-4">
+            {/* Cost Breakdown Pie Chart */}
             <Card className="p-6">
               <h3 className="mb-4">Cost Breakdown</h3>
               <ResponsiveContainer width="100%" height={200}>
@@ -430,6 +526,7 @@ export function InstanceMonitoringPage() {
               </ResponsiveContainer>
             </Card>
 
+            {/* Cost Summary */}
             <Card className="p-6">
               <h3 className="mb-4">Cost Summary {costsLoading && <Loader2 className="inline h-4 w-4 animate-spin ml-2" />}</h3>
               <div className="space-y-3">
@@ -451,7 +548,7 @@ export function InstanceMonitoringPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Logs */}
+      {/* System Logs */}
       <Card className="p-6">
         <h3 className="mb-4">System Logs (Mock)</h3>
         <div className="space-y-2">

@@ -1,8 +1,6 @@
-/**
- * =============================================================================
- * CloudSim EC2 API Client
- * =============================================================================
- */
+// =============================================================================
+// CloudSim EC2 API Client
+// =============================================================================
 
 import { api } from './client';
 
@@ -12,7 +10,7 @@ import { api } from './client';
 // =============================================================================
 // These interfaces define the shape of data returned by the backend API.
 
-/** Basic instance info returned by list endpoint */
+// Basic instance info returned by list endpoint
 export interface EC2Instance {
     instance_id: string;
     name: string;
@@ -24,7 +22,7 @@ export interface EC2Instance {
     availability_zone: string;
 }
 
-/** Full instance details including security groups, storage, tags */
+// Full instance details including security groups, storage, tags
 export interface EC2InstanceDetails extends EC2Instance {
     key_name: string | null;
     platform: string;
@@ -77,81 +75,71 @@ export interface ActionResponse {
 // SECTION 2: INSTANCE CRUD OPERATIONS
 // =============================================================================
 
-/**
- * List all EC2 instances.
- * 
- * CURL TEST:
- * ```bash
- * curl -X GET http://localhost:8000/api/ec2/instances \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- * 
- * RESPONSE EXAMPLE:
- * ```json
- * [
- *   {
- *     "instance_id": "i-0abc123def456",
- *     "name": "web-server-01",
- *     "instance_type": "t2.nano",
- *     "state": "running",
- *     "public_ip": "54.123.45.67",
- *     "private_ip": "172.31.16.22"
- *   }
- * ]
- * ```
- */
+// List all EC2 instances.
+//
+// CURL TEST:
+// curl -X GET http://localhost:8000/api/ec2/instances \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// 
+//
+// RESPONSE EXAMPLE:
+// [
+//   {
+//     "instance_id": "i-0abc123def456",
+//     "name": "web-server-01",
+//     "instance_type": "t2.nano",
+//     "state": "running",
+//     "public_ip": "54.123.45.67",
+//     "private_ip": "172.31.16.22"
+//   }
+// ]
+// ```
 export async function listInstances(): Promise<EC2Instance[]> {
     const response = await api.get<EC2Instance[]>('/api/ec2/instances');
     return response.data;
 }
 
 
-/**
- * Get detailed information for a specific instance.
- * 
- * CURL TEST:
- * ```bash
- * curl -X GET http://localhost:8000/api/ec2/instances/i-0abc123def456 \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- */
+// Get detailed information for a specific instance.
+//
+// CURL TEST:
+// ```bash
+// curl -X GET http://localhost:8000/api/ec2/instances/i-0abc123def456 \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// ```
 export async function getInstance(instanceId: string): Promise<EC2InstanceDetails> {
     const response = await api.get<EC2InstanceDetails>(`/api/ec2/instances/${instanceId}`);
     return response.data;
 }
 
 
-/**
- * Create a new EC2 instance.
- * 
- * CURL TEST:
- * ```bash
- * curl -X POST http://localhost:8000/api/ec2/instances \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
- *   -H "Content-Type: application/json" \
- *   -d '{"name": "test-server", "instance_type": "t2.micro"}'
- * ```
- * 
- * REQUIRED ROLE: DevOps Engineer or Admin
- */
+// Create a new EC2 instance.
+//
+// CURL TEST:
+// 
+// curl -X POST http://localhost:8000/api/ec2/instances \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+//   -H "Content-Type: application/json" \
+//   -d '{"name": "test-server", "instance_type": "t2.micro"}'
+// 
+//
+// REQUIRED ROLE: DevOps Engineer or Admin
 export async function createInstance(data: CreateInstanceRequest): Promise<ActionResponse> {
     const response = await api.post<ActionResponse>('/api/ec2/instances', data);
     return response.data;
 }
 
 
-/**
- * Terminate (delete) an EC2 instance permanently.
- * 
- * CURL TEST:
- * ```bash
- * curl -X DELETE http://localhost:8000/api/ec2/instances/i-0abc123def456 \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- * 
- * REQUIRED ROLE: Admin only
- * WARNING: This action is irreversible!
- */
+// Terminate (delete) an EC2 instance permanently.
+//
+// CURL TEST:
+// 
+// curl -X DELETE http://localhost:8000/api/ec2/instances/i-0abc123def456 \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// 
+//
+// REQUIRED ROLE: Admin only
+// WARNING: This action is irreversible!
 export async function terminateInstance(instanceId: string): Promise<ActionResponse> {
     const response = await api.delete<ActionResponse>(`/api/ec2/instances/${instanceId}`);
     return response.data;
@@ -162,60 +150,50 @@ export async function terminateInstance(instanceId: string): Promise<ActionRespo
 // SECTION 3: INSTANCE LIFECYCLE ACTIONS
 // =============================================================================
 
-/**
- * Start a stopped EC2 instance.
- * 
- * CURL TEST:
- * ```bash
- * curl -X POST http://localhost:8000/api/ec2/instances/i-0abc123def456/start \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- */
+// Start a stopped EC2 instance.
+//
+// CURL TEST:
+// ```bash
+// curl -X POST http://localhost:8000/api/ec2/instances/i-0abc123def456/start \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// ```
 export async function startInstance(instanceId: string): Promise<ActionResponse> {
     const response = await api.post<ActionResponse>(`/api/ec2/instances/${instanceId}/start`);
     return response.data;
 }
 
 
-/**
- * Stop a running EC2 instance.
- * 
- * CURL TEST:
- * ```bash
- * curl -X POST http://localhost:8000/api/ec2/instances/i-0abc123def456/stop \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- */
+// Stop a running EC2 instance.
+//
+// CURL TEST:
+// ```bash
+// curl -X POST http://localhost:8000/api/ec2/instances/i-0abc123def456/stop \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// ```
 export async function stopInstance(instanceId: string): Promise<ActionResponse> {
     const response = await api.post<ActionResponse>(`/api/ec2/instances/${instanceId}/stop`);
     return response.data;
 }
 
 
-/**
- * Reboot an EC2 instance.
- * 
- * CURL TEST:
- * ```bash
- * curl -X POST http://localhost:8000/api/ec2/instances/i-0abc123def456/reboot \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- */
+// Reboot an EC2 instance.
+//
+// CURL TEST:
+// ```bash
+// curl -X POST http://localhost:8000/api/ec2/instances/i-0abc123def456/reboot \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// ```
 export async function rebootInstance(instanceId: string): Promise<ActionResponse> {
     const response = await api.post<ActionResponse>(`/api/ec2/instances/${instanceId}/reboot`);
     return response.data;
 }
 
-
-/**
- * Get available instance types for creating new instances.
- * 
- * CURL TEST:
- * ```bash
- * curl -X GET http://localhost:8000/api/ec2/instance-types \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- */
+// Get available instance types for creating new instances.
+//
+// CURL TEST:
+// curl -X GET http://localhost:8000/api/ec2/instance-types \
+//  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+//
 export async function getInstanceTypes(): Promise<string[]> {
     const response = await api.get<{ instance_types: string[] }>('/api/ec2/instance-types');
     return response.data.instance_types;
@@ -248,19 +226,17 @@ export interface CurrentMetrics {
 }
 
 
-/**
- * Get CloudWatch metrics history for an instance.
- * 
- * CURL TEST:
- * ```bash
- * # Get last 60 minutes of metrics
- * curl -X GET "http://localhost:8000/api/ec2/instances/i-0abc123def456/metrics?period=60" \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- * 
- * @param instanceId - EC2 instance ID
- * @param periodMinutes - How far back to fetch (default: 60)
- */
+// Get CloudWatch metrics history for an instance.
+//
+// CURL TEST:
+// 
+// # Get last 60 minutes of metrics
+// curl -X GET "http://localhost:8000/api/ec2/instances/i-0abc123def456/metrics?period=60" \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// 
+//
+// @param instanceId - EC2 instance ID
+// @param periodMinutes - How far back to fetch (default: 60)
 export async function getInstanceMetrics(
     instanceId: string,
     periodMinutes: number = 60
@@ -272,15 +248,13 @@ export async function getInstanceMetrics(
 }
 
 
-/**
- * Get current (latest) metrics for an instance.
- * 
- * CURL TEST:
- * ```bash
- * curl -X GET http://localhost:8000/api/ec2/instances/i-0abc123def456/metrics/current \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- */
+// Get current (latest) metrics for an instance.
+//
+// CURL TEST:
+//
+// curl -X GET http://localhost:8000/api/ec2/instances/i-0abc123def456/metrics/current \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// 
 export async function getCurrentMetrics(instanceId: string): Promise<CurrentMetrics> {
     const response = await api.get<CurrentMetrics>(
         `/api/ec2/instances/${instanceId}/metrics/current`
@@ -308,30 +282,26 @@ export interface CostSummary {
 }
 
 
-/**
- * Get daily cost breakdown for the last N days.
- * 
- * CURL TEST:
- * ```bash
- * curl -X GET "http://localhost:8000/api/ec2/costs/daily?days=7" \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- */
+// Get daily cost breakdown for the last N days.
+//
+// CURL TEST:
+//
+// curl -X GET "http://localhost:8000/api/ec2/costs/daily?days=7" \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// 
 export async function getDailyCosts(days: number = 7): Promise<DailyCost[]> {
     const response = await api.get<DailyCost[]>(`/api/ec2/costs/daily?days=${days}`);
     return response.data;
 }
 
 
-/**
- * Get current month cost summary.
- * 
- * CURL TEST:
- * ```bash
- * curl -X GET http://localhost:8000/api/ec2/costs/summary \
- *   -H "Authorization: Bearer YOUR_JWT_TOKEN"
- * ```
- */
+// Get current month cost summary.
+//
+// CURL TEST:
+//
+// curl -X GET http://localhost:8000/api/ec2/costs/summary \
+//   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+// 
 export async function getCostSummary(): Promise<CostSummary> {
     const response = await api.get<CostSummary>('/api/ec2/costs/summary');
     return response.data;
@@ -341,27 +311,27 @@ export async function getCostSummary(): Promise<CostSummary> {
 // =============================================================================
 // QUICK REFERENCE: HOW TO GET A JWT TOKEN FOR TESTING
 // =============================================================================
-/*
- * Before testing with curl, you need a JWT token. Get one with:
- * 
- * ```bash
- * # Login to get a token (OAuth2 requires form-urlencoded, NOT JSON!)
- * curl -X POST http://localhost:8000/api/auth/login \
- *   -H "Content-Type: application/x-www-form-urlencoded" \
- *   -d "username=admin@gmail.com&password=admin123"
- * 
- * # Response:
- * # {"access_token": "eyJhbGci...", "token_type": "bearer"}
- * 
- * # Use the token in subsequent requests:
- * export TOKEN="eyJhbGci..."
- * curl -X GET http://localhost:8000/api/ec2/instances \
- *   -H "Authorization: Bearer $TOKEN"
- * ```
- * 
- * TEST ACCOUNTS:
- *   admin@gmail.com / admin123 (Admin)
- *   deng@gmail.com / deng123 (DevOps Engineer)
- *   user@gmail.com / user123 (User)
- */
+
+
+// Before testing with curl, you need a JWT token. Get one with:
+//
+
+// Login to get a token (OAuth2 requires form-urlencoded)
+// curl - X POST http://localhost:8000/api/auth/login \
+// -H "Content-Type: application/x-www-form-urlencoded" \
+// -d "username=admin@gmail.com&password=admin123"
+// 
+// Response:
+// {"access_token": "eyJhbGci...", "token_type": "bearer"}
+//
+// Use the token in subsequent requests:
+// export TOKEN="eyJhbGci..."
+// curl -X GET http://localhost:8000/api/ec2/instances \
+//   -H "Authorization: Bearer $TOKEN"
+//
+// TEST ACCOUNTS:
+//   admin@gmail.com / admin123 (Admin)
+//   deng@gmail.com / deng123 (DevOps Engineer)
+//   user@gmail.com / user123 (User)
+
 

@@ -1,3 +1,34 @@
+// =============================================================================
+// InstanceDetailsPage.tsx
+// =============================================================================
+// Detailed view for a single EC2 instance showing properties, security groups,
+// networking, storage, and tags. Provides instance lifecycle actions.
+//
+// API CALLS:
+// - getInstance()       -> GET /api/ec2/instances/:id
+// - startInstance()     -> POST /api/ec2/instances/:id/start
+// - stopInstance()      -> POST /api/ec2/instances/:id/stop
+// - rebootInstance()    -> POST /api/ec2/instances/:id/reboot
+// - terminateInstance() -> DELETE /api/ec2/instances/:id
+//
+// COMPONENT STRUCTURE:
+// └── InstanceDetailsPage
+//     ├── Header (Name, State Badge, Action Buttons)
+//     ├── Quick Info Cards (Type, Zone, Public IP, Private IP)
+//     ├── Tabs
+//     │   ├── Details Tab (Instance properties)
+//     │   ├── Security Tab (Security groups, IAM role)
+//     │   ├── Networking Tab (VPC, Subnet, DNS)
+//     │   ├── Storage Tab (EBS volumes table)
+//     │   └── Tags Tab (Key-value pairs)
+//     └── ScalingConfigDialog (modal)
+// =============================================================================
+
+
+// =============================================================================
+// IMPORTS
+// =============================================================================
+
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -9,14 +40,31 @@ import { ScalingConfigDialog } from "./ScalingConfigDialog";
 import { getInstance, startInstance, stopInstance, rebootInstance, terminateInstance, type EC2InstanceDetails } from "../api/ec2";
 import { toast } from "sonner";
 
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
 interface InstanceDetailsPageProps {
   instanceId?: string | null;
 }
 
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
 export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
   const [instance, setInstance] = useState<EC2InstanceDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+
+  // ---------------------------------------------------------------------------
+  // API Handlers - Fetch Instance Details
+  // ---------------------------------------------------------------------------
 
   useEffect(() => {
     if (instanceId) {
@@ -27,6 +75,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
   const fetchInstanceDetails = async (id: string) => {
     setLoading(true);
     try {
+      // API CALL: GET /api/ec2/instances/:id
       const data = await getInstance(id);
       setInstance(data);
     } catch (error) {
@@ -37,9 +86,14 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // API Handlers - Instance Actions
+  // ---------------------------------------------------------------------------
+
   const handleStart = async () => {
     if (!instance) return;
     try {
+      // API CALL: POST /api/ec2/instances/:id/start
       await startInstance(instance.instance_id);
       toast.success("Instance starting...");
       fetchInstanceDetails(instance.instance_id);
@@ -51,6 +105,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
   const handleStop = async () => {
     if (!instance) return;
     try {
+      // API CALL: POST /api/ec2/instances/:id/stop
       await stopInstance(instance.instance_id);
       toast.success("Instance stopping...");
       fetchInstanceDetails(instance.instance_id);
@@ -62,6 +117,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
   const handleReboot = async () => {
     if (!instance) return;
     try {
+      // API CALL: POST /api/ec2/instances/:id/reboot
       await rebootInstance(instance.instance_id);
       toast.success("Instance rebooting...");
       fetchInstanceDetails(instance.instance_id);
@@ -74,6 +130,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
     if (!instance) return;
     if (confirm("Are you sure you want to terminate this instance? This cannot be undone.")) {
       try {
+        // API CALL: DELETE /api/ec2/instances/:id
         await terminateInstance(instance.instance_id);
         toast.success("Instance terminating...");
         fetchInstanceDetails(instance.instance_id);
@@ -82,6 +139,10 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
       }
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // Render - Empty State (no instance selected)
+  // ---------------------------------------------------------------------------
 
   if (!instanceId) {
     return (
@@ -92,6 +153,10 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Render - Loading State
+  // ---------------------------------------------------------------------------
+
   if (loading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
@@ -100,6 +165,10 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Render - Not Found State
+  // ---------------------------------------------------------------------------
+
   if (!instance) {
     return (
       <div className="flex h-[400px] items-center justify-center">
@@ -107,6 +176,10 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
       </div>
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Render - Main Content
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="space-y-6">
@@ -195,6 +268,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
           <TabsTrigger value="tags">Tags</TabsTrigger>
         </TabsList>
 
+        {/* Details Tab */}
         <TabsContent value="details" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">Instance Details</h3>
@@ -243,6 +317,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
           </Card>
         </TabsContent>
 
+        {/* Security Tab */}
         <TabsContent value="security" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">Security Groups</h3>
@@ -283,6 +358,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
           </Card>
         </TabsContent>
 
+        {/* Networking Tab */}
         <TabsContent value="networking" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">Networking Details</h3>
@@ -307,6 +383,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
           </Card>
         </TabsContent>
 
+        {/* Storage Tab */}
         <TabsContent value="storage" className="space-y-4">
           <Card className="p-6">
             <h3 className="mb-4">Block Devices (EBS Volumes)</h3>
@@ -347,11 +424,11 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
           </Card>
         </TabsContent>
 
+        {/* Tags Tab */}
         <TabsContent value="tags" className="space-y-4">
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3>Resource Tags</h3>
-              {/* Add Tag functionality could be implemented here */}
             </div>
 
             <Table>
@@ -378,6 +455,7 @@ export function InstanceDetailsPage({ instanceId }: InstanceDetailsPageProps) {
         </TabsContent>
       </Tabs>
 
+      {/* Scaling Config Dialog */}
       <ScalingConfigDialog
         open={isConfigDialogOpen}
         onOpenChange={setIsConfigDialogOpen}

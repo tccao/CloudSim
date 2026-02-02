@@ -1,3 +1,27 @@
+// =============================================================================
+// CreateInstanceModal.tsx
+// =============================================================================
+// Multi-step wizard modal for launching new EC2 instances. Guides users through
+// selecting AMI, instance type, network/storage configuration, and review.
+//
+// API CALLS:
+// - createInstance() -> POST /api/ec2/instances
+//
+// COMPONENT STRUCTURE:
+// └── CreateInstanceModal
+//     ├── Progress Indicator (Steps 1-4)
+//     ├── Step 1: Name & AMI Selection
+//     ├── Step 2: Instance Type Selection
+//     ├── Step 3: Network & Storage Configuration
+//     ├── Step 4: Review & Launch
+//     └── Navigation Footer (Back/Next/Launch)
+// =============================================================================
+
+
+// =============================================================================
+// IMPORTS
+// =============================================================================
+
 import { useState } from 'react';
 import { createInstance } from '../api/instances';
 import { toast } from 'sonner';
@@ -13,10 +37,20 @@ import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Checkbox } from './ui/checkbox';
 
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
 interface CreateInstanceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+
+// =============================================================================
+// CONSTANTS - Configuration Options
+// =============================================================================
 
 // AMI options data
 const amiOptions = {
@@ -50,7 +84,15 @@ const sgOptions = {
   'cloudsim-ec2-sg': 'sg-0cd0cdc01b676a91e (cloudsim-ec2-sg)',
 };
 
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
 export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalProps) {
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
   const [step, setStep] = useState(1);
   const [isLaunching, setIsLaunching] = useState(false);
 
@@ -63,6 +105,17 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
   const [selectedSecurityGroup, setSelectedSecurityGroup] = useState('cloudsim-ec2-sg');
   const [volumeSize, setVolumeSize] = useState('1');
 
+  // ---------------------------------------------------------------------------
+  // Computed Values
+  // ---------------------------------------------------------------------------
+
+  // Calculate estimated monthly cost
+  const monthlyCost = (instanceTypes[selectedInstanceType as keyof typeof instanceTypes].price * 730).toFixed(2);
+
+  // ---------------------------------------------------------------------------
+  // Navigation Handlers
+  // ---------------------------------------------------------------------------
+
   const handleNext = () => {
     if (step < 4) setStep(step + 1);
   };
@@ -71,13 +124,15 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
     if (step > 1) setStep(step - 1);
   };
 
-  // Calculate estimated monthly cost
-  const monthlyCost = (instanceTypes[selectedInstanceType as keyof typeof instanceTypes].price * 730).toFixed(2);
+  // ---------------------------------------------------------------------------
+  // API Handler - Launch Instance
+  // ---------------------------------------------------------------------------
 
   const handleLaunch = async () => {
     try {
       setIsLaunching(true);
 
+      // API CALL: POST /api/ec2/instances
       await createInstance({
         name: instanceName,
         instance_type: selectedInstanceType,
@@ -86,12 +141,6 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
       toast.success('Instance launched successfully');
       onOpenChange(false);
       setStep(1);
-      // Trigger a refresh somehow? 
-      // ideally we should pass a callback prop `onSuccess` or use a context.
-      // For now, let's just close. The user might need to manually refresh dashboard 
-      // unless we fix DashboardPage to auto-refresh or share state.
-      // Let's add a hack: reload window? No, bad UX.
-      // Better: Add onSuccess prop.
     } catch (error) {
       console.error('Failed to launch instance:', error);
       toast.error('Failed to launch instance');
@@ -100,6 +149,9 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -422,6 +474,7 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
           </div>
         )}
 
+        {/* Footer Navigation */}
         <DialogFooter>
           <div className="flex justify-between w-full">
             <Button

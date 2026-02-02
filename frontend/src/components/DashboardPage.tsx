@@ -1,3 +1,33 @@
+// =============================================================================
+// DashboardPage.tsx
+// =============================================================================
+// Main dashboard view displaying EC2 instance overview, instance table with
+// actions, alarms, zone health, and resource usage summary.
+//
+// API CALLS:
+// - fetchInstances() -> GET /api/ec2/instances
+// - deleteInstance() -> DELETE /api/ec2/instances/:id
+// - startInstance()  -> POST /api/ec2/instances/:id/start
+// - stopInstance()   -> POST /api/ec2/instances/:id/stop
+// - rebootInstance() -> POST /api/ec2/instances/:id/reboot
+//
+// COMPONENT STRUCTURE:
+// └── DashboardPage
+//     ├── Account Overview Cards (Total, Running, Stopped, Alarms)
+//     ├── All Instances Table
+//     │   ├── Instance Name (clickable)
+//     │   ├── Instance ID, Type, State, Zone, IP, Uptime
+//     │   └── Action Buttons (Start/Stop/Reboot/Terminate)
+//     ├── Instance Alarms Card
+//     ├── Availability Zone Health Card
+//     └── Resource Usage Summary Card
+// =============================================================================
+
+
+// =============================================================================
+// IMPORTS
+// =============================================================================
+
 import { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -7,6 +37,20 @@ import { Progress } from './ui/progress';
 import { Server, Play, Square, RotateCw, Trash2, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { fetchInstances, deleteInstance, startInstance, stopInstance, rebootInstance, type Instance } from '../api/instances';
 import { toast } from 'sonner';
+
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface DashboardPageProps {
+  onInstanceClick: (id: string) => void;
+}
+
+
+// =============================================================================
+// CONSTANTS - Mock Data
+// =============================================================================
 
 const alarms = [
   { name: 'web-server-01-cpu-high', instance: 'web-server-01', status: 'ok', metric: 'CPU Utilization' },
@@ -21,17 +65,34 @@ const zones = [
   { name: 'us-east-1c', status: 'healthy', instances: 1, cpuAvg: 0 },
 ];
 
-interface DashboardPageProps {
-  onInstanceClick: (id: string) => void;
-}
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
 
 export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
   const [instances, setInstances] = useState<Instance[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ---------------------------------------------------------------------------
+  // Computed Values
+  // ---------------------------------------------------------------------------
+  const runningInstances = instances.filter(i => i.state === 'running').length;
+  const stoppedInstances = instances.filter(i => i.state === 'stopped').length;
+  const totalInstances = instances.length;
+  const activeAlarms = alarms.filter(a => a.status === 'alarm').length;
+
+  // ---------------------------------------------------------------------------
+  // API Handlers - Load Data
+  // ---------------------------------------------------------------------------
 
   const loadData = async () => {
     try {
       setLoading(true);
+      // API CALL: GET /api/ec2/instances
       const data = await fetchInstances();
       setInstances(data);
     } catch (error) {
@@ -46,8 +107,13 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
     loadData();
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // API Handlers - Instance Actions
+  // ---------------------------------------------------------------------------
+
   const handleDelete = async (id: string) => {
     try {
+      // API CALL: DELETE /api/ec2/instances/:id
       await deleteInstance(id);
       toast.success('Instance terminated successfully');
       loadData();
@@ -59,6 +125,7 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
 
   const handleStart = async (id: string) => {
     try {
+      // API CALL: POST /api/ec2/instances/:id/start
       await startInstance(id);
       toast.success('Starting instance...');
       loadData();
@@ -70,6 +137,7 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
 
   const handleStop = async (id: string) => {
     try {
+      // API CALL: POST /api/ec2/instances/:id/stop
       await stopInstance(id);
       toast.success('Stopping instance...');
       loadData();
@@ -81,6 +149,7 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
 
   const handleReboot = async (id: string) => {
     try {
+      // API CALL: POST /api/ec2/instances/:id/reboot
       await rebootInstance(id);
       toast.success('Rebooting instance...');
       loadData();
@@ -90,10 +159,9 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
     }
   };
 
-  const runningInstances = instances.filter(i => i.state === 'running').length;
-  const stoppedInstances = instances.filter(i => i.state === 'stopped').length;
-  const totalInstances = instances.length;
-  const activeAlarms = alarms.filter(a => a.status === 'alarm').length;
+  // ---------------------------------------------------------------------------
+  // Render - Loading State
+  // ---------------------------------------------------------------------------
 
   if (loading) {
     return (
@@ -102,6 +170,10 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
       </div>
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Render - Main Content
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="space-y-6">
@@ -159,7 +231,7 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
         </div>
       </div>
 
-      {/* All Instances */}
+      {/* All Instances Table */}
       <Card className="p-6">
         <div className="flex justify-between items-center mb-4">
           <h3>All Instances</h3>
@@ -248,6 +320,7 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
         </Table>
       </Card>
 
+      {/* Two Column Layout: Alarms + Zone Health */}
       <div className="grid grid-cols-2 gap-6">
         {/* Instance Alarms */}
         <Card className="p-6">
