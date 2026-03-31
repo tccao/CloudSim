@@ -78,6 +78,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
+  // Listen for forced logout triggered by a 401 response in client.ts
+  // When the HTTP layer detects an expired token, it fires this event.
+  // We clear React state here so the login modal appears automatically.
+  useEffect(() => {
+    const handleForcedLogout = () => {
+      setUser(null);
+      setError('Your session has expired. Please log in again.');
+    };
+    window.addEventListener('auth:logout', handleForcedLogout);
+    return () => window.removeEventListener('auth:logout', handleForcedLogout);
+  }, []);
+
   // Login with backend credentials
   const loginWithCredentials = useCallback(async (email: string, password: string) => {
     setError(null);

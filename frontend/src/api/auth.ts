@@ -98,40 +98,12 @@ export function getStoredUser(): User | null {
 // =============================================================================
 // SECTION 3: AXIOS INTERCEPTORS
 // =============================================================================
-// Interceptors automatically modify requests/responses.
-// This is how the JWT token gets attached to every API call.
-
-/**
- * REQUEST INTERCEPTOR: Attach JWT token to all outgoing requests.
- * 
- * Before every HTTP request, this adds:
- *   Authorization: Bearer eyJhbGci...
- */
-api.interceptors.request.use((config) => {
-    const token = getToken();
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
-
-
-/**
- * RESPONSE INTERCEPTOR: Handle 401 Unauthorized globally.
- * 
- * If any API call returns 401, the token is invalid/expired.
- * We clear the stored token so the user will be prompted to login.
- */
-api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            removeToken();
-            // The UI should detect this and show login modal
-        }
-        return Promise.reject(error);
-    }
-);
+// Interceptors are now configured in client.ts — the single source of truth
+// for all HTTP configuration. Moving them there makes the setup explicit:
+// any file that imports `api` from client.ts gets the interceptors
+// automatically, regardless of import order.
+//
+// See: frontend/src/api/client.ts
 
 
 // =============================================================================
