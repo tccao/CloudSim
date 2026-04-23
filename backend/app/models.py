@@ -6,6 +6,7 @@
 # MODELS:
 # - User: Authentication and authorization (email, password, role)
 # - Instance: AWS EC2 instances synced to local database
+# - Metric: (coming next) CloudWatch metric snapshots persisted locally
 #
 # ROLES (User.role):
 # - Admin: Full access to all resources AND user management (CRUD users)
@@ -17,7 +18,7 @@
 # =============================================================================
 # IMPORTS
 # =============================================================================
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, CheckConstraint
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, CheckConstraint, Index
 from datetime import datetime
 
 from .db import Base
@@ -85,6 +86,13 @@ class Instance(Base):
     - created_by_user_id: CloudSim user who created this instance
     """
     __tablename__ = "instances"
+    __table_args__ = (
+        # Composite index: speeds up queries that filter by state AND sort by last_synced.
+        # Example query this helps: "show all running instances, newest sync first"
+        # Without this index, Postgres reads every row (full table scan).
+        # With it, Postgres jumps directly to matching rows via B-tree lookup.
+        Index("ix_instances_state_synced", "state", "last_synced"),
+    )
 
     instance_id = Column(String, primary_key=True, index=True)  # AWS instance ID
     name = Column(String, nullable=True)  # Name tag
