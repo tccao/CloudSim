@@ -1,4 +1,4 @@
-﻿Week,Day,Objective,Hours,Notes / Learning Focus,Complete,Road block
+Week,Day,Objective,Hours,Notes / Learning Focus,Complete,Road block
 1,11/3/2025,"Document CloudSim user stories for Admin, DevOps, and Standard User roles",1.5,Identify key personas and primary goals,yes,
 1,11/4/2025,"Create detailed user flows for resource provisioning, scaling, and termination",2,Create a markdown document with 3 user cases,yes,
 1,11/5/2025,Write acceptance criteria for each user story,2,Define testable outcomes,yes,
@@ -8,7 +8,7 @@ Milestone,,Milestone: User stories and SRS document completed,0,Foundation for U
 2,11/10/2025,"Design EC2-style dashboard mockup (instance list, start/stop buttons, metrics cards)",2,Use Figma,yes,
 2,11/11/2025,"Create wireframes for instance creation, details, and monitoring pages",2,Ensure UI consistency,yes,
 2,11/12/2025,"Document user interface behavior (button clicks, state updates, error handling)",2,Simulate UI-UX transitions,yes,
-2,11/13/2025,Design system diagram: frontend actions â†’ backend request â†’ DB save â†’ response,4,Interaction mapping,,
+2,11/13/2025,Design system diagram: frontend actions to backend request to DB save to response,4,Interaction mapping,yes,
 2,11/14/2025,Render first static mock screen in React (EC2-like page layout),4,MVP UI built,yes,
 Milestone,,Milestone: All wireframes completed + 1 static React page rendered,0,Visual design foundation established,yes,
 3,11/17/2025,"Define required backend APIs (Instances, Storage, Network, Metrics)",2,List CRUD routes,yes,
@@ -21,42 +21,42 @@ Milestone,,Milestone: Full API reference document drafted and approved,4,Backend
 4,11/25/2025,Implement /instances POST and GET endpoints with SQLAlchemy models,2,Database CRUD working,yes,
 4,11/26/2025,Connect React frontend to FastAPI backend with Axios,2,Send/receive API requests,yes,
 4,11/27/2025,Develop functional EC2-like instance creation page (create + display),2,Interactive UI component,yes,
-4,11/28/2025,Conduct end-to-end testing (frontendâ†’backendâ†’DBâ†’response),2,Full MVP test passed,yes,
+4,11/28/2025,Conduct end-to-end testing (frontend to backend to DB to response),2,Full MVP test passed,yes,
 Milestone,,Milestone: Working EC2-style page integrated with backend and DB,0,First deployable prototype ready,yes,
-5,12/1/2025,Design authentication screens (login/register),2,UI flow + wireframes,no,
-5,12/2/2025,Implement authentication UI in React,2,"Forms, validation, protected routes",no,
-5,12/3/2025,Implement JWT authentication in FastAPI,2,"Login, token issue, middleware",no,
-5,12/4/2025,Align database schema with frontend models,2,"Users, Instances, Metrics tables",no,
-5,12/5/2025,Protect instance APIs with authentication,2,Auth-gated EC2 actions,no,
-Milestone,,Milestone: Authentication fully implemented,0,Secure app baseline,no,
+5,12/1/2025,Design authentication screens (login/register),2,UI flow + wireframes,yes,LoginModal simplified to real credentials only (commit 3afcf8d)
+5,12/2/2025,Implement authentication UI in React,2,"Forms, validation, protected routes",yes,UserContext has loginWithCredentials + register + logout + role state
+5,12/3/2025,Implement JWT authentication in FastAPI,2,"Login, token issue, middleware",yes,auth_routes.py has /register /login /me; bcrypt via direct hashpw (commit ede1978)
+5,12/4/2025,Align database schema with frontend models,2,"Users, Instances, Metrics tables",yes,DB CheckConstraint on role; index on email and instance_id
+5,12/5/2025,Protect instance APIs with authentication,2,Auth-gated EC2 actions,yes,Every ec2_routes.py endpoint uses Depends(get_current_user); Axios interceptor attaches Bearer token
+Milestone,,Milestone: Authentication fully implemented,0,Secure app baseline,yes,
 ,,,,,,
-6,12/8/2025,Research AWS EC2 API and IAM setup,2,"Boto3, IAM roles, credentials",no,
-6,12/9/2025,Connect backend to AWS EC2 (read-only),2,DescribeInstances,no,
-6,12/10/2025,Trigger EC2 actions from backend,2,Start/Stop/Create instances,no,
-6,12/11/2025,Store EC2 metadata in Postgres,2,Sync cloud â†’ local DB,no,
-6,12/12/2025,Verify EC2 lifecycle via UI,2,UI â†’ API â†’ AWS â†’ DB,no,
-Milestone,,Milestone: AWS EC2 fully integrated,0,Real cloud control achieved,no,
+6,12/8/2025,Research AWS EC2 API and IAM setup,2,"Boto3, IAM roles, credentials",yes,aws_role_manager.py implements STS AssumeRole per user role (commit 06fd5ba)
+6,12/9/2025,Connect backend to AWS EC2 (read-only),2,DescribeInstances,yes,list_instances() uses role-based boto3 client via get_ec2_client_for_user()
+6,12/10/2025,Trigger EC2 actions from backend,2,Start/Stop/Create instances,yes,All lifecycle actions implemented with RBAC ownership checks (commit a814831)
+6,12/11/2025,Store EC2 metadata in Postgres,2,Sync cloud to local DB,yes,sync_instances_to_db() upserts on every GET /instances call
+6,12/12/2025,Verify EC2 lifecycle via UI,2,UI to API to AWS to DB,yes,Dashboard connected to live AWS data; VPC/Subnet support added (commit 66b4512)
+Milestone,,Milestone: AWS EC2 fully integrated,0,Real cloud control achieved,yes,
 ,,,,,,
-7,12/15/2025,Research CloudWatch metrics model,2,"CPU, Network, Disk",no,
-7,12/16/2025,Fetch EC2 metrics from CloudWatch,2,GetMetricData,no,
-7,12/17/2025,Persist metrics to Postgres,2,Time-series schema,no,
-7,12/18/2025,Render metrics in monitoring UI,2,Charts with real data,no,
-7,12/19/2025,Run end-to-end monitoring test,2,EC2 â†’ CloudWatch â†’ DB â†’ UI,no,
-Milestone,,Milestone: Monitoring pipeline operational,0,Production-style telemetry,no,
+7,12/15/2025,Research CloudWatch metrics model,2,"CPU, Network, Disk",yes,get_instance_metrics() fetches CPUUtilization + NetworkIn/Out + DiskOps
+7,12/16/2025,Fetch EC2 metrics from CloudWatch,2,GetMetricData,yes,aws_service.get_instance_metrics() and get_instance_current_metrics() implemented
+7,12/17/2025,Persist metrics to Postgres,2,Time-series schema,no,Metrics are fetched live from CloudWatch per request; local persistence skipped (acceptable tradeoff)
+7,12/18/2025,Render metrics in monitoring UI,2,Charts with real data,yes,InstanceMonitoringPage.tsx renders Recharts charts; Cost data intentionally mocked
+7,12/19/2025,Run end-to-end monitoring test,2,EC2 to CloudWatch to DB to UI,partial,Charts work end-to-end; metrics not persisted to DB
+Milestone,,Milestone: Monitoring pipeline operational,0,Production-style telemetry,partial,Metrics live from CloudWatch; local persistence deferred
 ,,,,,,
-8,12/22/2025,Create full UI mock screenshots,2,"Auth, EC2, Monitoring pages",no,
-8,12/23/2025,Design system architecture diagram,2,Frontend â†’ Backend â†’ AWS â†’ DB,no,
-8,12/24/2025,Write full app walkthrough,2,User + system flow,no,
-8,12/25/2025,Document database schemas vs UI,2,Schema â†” UI mapping,no,
-8,12/26/2025,Assemble complete design document,2,Single polished artifact,no,
-Milestone,,Milestone: Jan 4 design doc complete,0,Meeting-ready documentation,no,
+8,12/22/2025,Create full UI mock screenshots,2,"Auth, EC2, Monitoring pages",no,Architecture_Manual.md has 10+ [Image Placeholder] entries — screenshots not captured
+8,12/23/2025,Design system architecture diagram,2,Frontend to Backend to AWS to DB,yes,Architecture_Manual.md and Architecture_Diagram.md completed with Mermaid diagrams
+8,12/24/2025,Write full app walkthrough,2,User + system flow,yes,Architecture_User_Walkthrough.md and aws-session-flow.md written
+8,12/25/2025,Document database schemas vs UI,2,Schema and UI mapping,yes,Database_Schema.md documents Users and Instances tables with ERD (commit 8e36964)
+8,12/26/2025,Assemble complete design document,2,Single polished artifact,partial,Architecture_Manual.md assembled but missing real screenshots
+Milestone,,Milestone: Jan 4 design doc complete,0,Meeting-ready documentation,partial,Replace [Image Placeholder] sections with real app screenshots
 ,,,,,,
-9,12/29/2025,Refactor backend for AWS + auth,2,"Service layers, adapters",no,
-9,12/30/2025,Add error handling and retries,2,AWS + network resiliency,no,
-9,12/31/2025,Optimize DB queries and indexes,2,Metrics + instances,no,
-9,1/1/2026,Run full integration tests,2,Auth â†’ AWS â†’ DB â†’ UI,no,
-9,1/2/2026,Fix bugs and polish flows,2,Stability pass,no,
-Milestone,,Milestone: Post-meeting stabilization,0,System reliable,no,
+9,12/29/2025,Refactor backend for AWS + auth,2,"Service layers, adapters",yes,ec2_routes.py and aws_service.py refactored with clean error handling (commit 9dfe563)
+9,12/30/2025,Add error handling and retries,2,AWS + network resiliency,yes,AWSConfigurationError + AWSServiceError translated to 503/502 HTTP responses
+9,12/31/2025,Optimize DB queries and indexes,2,Metrics + instances,partial,index=True on email and instance_id; composite indexes on state/last_synced not added
+9,1/1/2026,Run full integration tests,2,Auth to AWS to DB to UI,no,No automated test suite; tested manually only
+9,1/2/2026,Fix bugs and polish flows,2,Stability pass,partial,Axios client.ts has no interceptor — auth.ts manages its own axios instance separately
+Milestone,,Milestone: Post-meeting stabilization,0,System reliable,partial,2 gaps: Axios interceptor + no automated tests
 ,,,,,,
 10,1/5/2026,Learn Docker fundamentals,2,"Images, volumes, networks",no,
 10,1/6/2026,Containerize backend and frontend,2,Dockerfiles,no,
@@ -84,4 +84,4 @@ Milestone,,Milestone: CloudSim live in production,0,Publicly accessible,no,
 13,1/28/2026,Record demo video,2,Feature walkthrough,no,
 13,1/29/2026,Write technical report,2,Decisions + tradeoffs,no,
 13,1/30/2026,Create portfolio entry,2,GitHub + LinkedIn,no,
-Milestone,,Milestone: Project completed and published,0,Portfolio-ready,yes,
+Milestone,,Milestone: Project completed and published,0,Portfolio-ready,no,
