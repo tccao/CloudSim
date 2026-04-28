@@ -38,7 +38,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from .auth import get_current_user
-from .models import User, Instance
+from .models import User, Instance, Metric
 from .db import get_db
 from . import aws_service
 from .aws_service import AWSConfigurationError, AWSServiceError
@@ -194,6 +194,64 @@ def sync_instances_to_db(aws_instances: list, db: Session):
             )
             db.add(db_instance)
     
+    db.commit()
+
+
+# =============================================================================
+# HELPER - Persist CloudWatch Metrics to Database
+# =============================================================================
+def persist_metrics_to_db(instance_id: str, metrics_data: dict, db: Session):
+    """
+    Save CloudWatch metric readings into the local metrics table.
+
+    HOW IT WORKS:
+    - metrics_data is the dict returned by aws_service.get_instance_metrics()
+    - Each metric is a list of {timestamp, value} dicts from CloudWatch
+    - We loop through every datapoint and insert a row — but only if that
+      exact (instance_id + metric_name + recorded_at) combo doesn't exist yet.
+      This check is called an idempotency guard: running the function twice
+      won't create duplicate rows.
+
+    Args:
+        instance_id:  EC2 instance ID (e.g. i-0abc123)
+        metrics_data: Dict from get_instance_metrics() — keys are
+                      cpu_utilization, network_in, network_out, etc.
+        db:           SQLAlchemy session (injected by FastAPI Depends)
+    """
+    # Maps the field name in the response → (metric_name stored in DB, unit)
+    metric_map = {
+        "cpu_utilization": ("CPUUtilization", "Percent"),
+        "network_in":      ("NetworkIn",      "Bytes"),
+        "network_out":     ("NetworkOut",     "Bytes"),
+        "disk_read_ops":   ("DiskReadOps",    "Count"),
+        "disk_write_ops":  ("DiskWriteOps",   "Count"),
+    }
+
+    for field_name, (metric_name, unit) in metric_map.items():
+        datapoints = metrics_data.get(field_name, [])
+
+        for dp in datapoints:
+            # Parse the ISO timestamp that CloudWatch returned
+            recorded_at = datetime.fromisoformat(
+                dp["timestamp"].replace("Z", "+00:00")
+            )
+
+            # Idempotency guard — skip if this exact datapoint is already stored
+            already_exists = db.query(Metric).filter(
+                Metric.instance_id == instance_id,
+                Metric.metric_name == metric_name,
+                Metric.recorded_at == recorded_at,
+            ).first()
+
+            if not already_exists:
+                db.add(Metric(
+                    instance_id=instance_id,
+                    metric_name=metric_name,
+                    value=dp["value"],
+                    unit=unit,
+                    recorded_at=recorded_at,
+                ))
+
     db.commit()
 
 
@@ -576,14 +634,20 @@ async def get_instance_types(current_user: User = Depends(get_current_user)):
 async def get_instance_metrics(
     instance_id: str,
     period: int = 60,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Get CloudWatch metrics history for an instance.
-    
+
+    Fetches live data from CloudWatch, persists each datapoint to the
+    local metrics table as a side effect, then returns the data to the UI.
+    The user sees no difference — the page loads the same way. But now
+    Postgres has a growing history of every reading.
+
     QUERY PARAMS:
         period: Minutes of history to fetch (default: 60)
-    
+
     RETURNS:
         {
             "instance_id": "i-xxx",
@@ -595,7 +659,9 @@ async def get_instance_metrics(
         }
     """
     try:
-        return aws_service.get_instance_metrics(instance_id, period_minutes=period)
+        metrics = aws_service.get_instance_metrics(instance_id, period_minutes=period)
+        persist_metrics_to_db(instance_id, metrics, db)  # save to DB as side effect
+        return metrics
     except Exception as e:
         _raise_http_for_aws_error(e)
 
