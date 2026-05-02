@@ -22,6 +22,9 @@
 # =============================================================================
 # IMPORTS
 # =============================================================================
+from contextlib import asynccontextmanager
+import logging
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -73,6 +76,23 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 # =============================================================================
+# LIFESPAN — replaces the deprecated @app.on_event("startup")
+# =============================================================================
+# Everything BEFORE `yield` runs on startup.
+# Everything AFTER `yield` runs on shutdown.
+# This is the modern FastAPI pattern (v0.93+).
+# =============================================================================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ---- STARTUP ----
+    logger = logging.getLogger("uvicorn")
+    logger.info(f"CloudSim API starting in {settings.environment} mode")
+    logger.info(f"CORS origins: {settings.cors_origins}")
+    yield
+    # ---- SHUTDOWN (add cleanup logic here if needed later) ----
+
+
+# =============================================================================
 # APPLICATION SETUP
 # =============================================================================
 app = FastAPI(
@@ -81,6 +101,7 @@ app = FastAPI(
     description="Cloud infrastructure management API",
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
+    lifespan=lifespan,  # modern startup/shutdown handler
 )
 
 # Add security headers middleware
@@ -127,20 +148,3 @@ app.include_router(admin_router)
 app.include_router(ec2_router)
 
 
-# =============================================================================
-# STARTUP EVENT
-# =============================================================================
-@app.on_event("startup")
-async def startup_event():
-    """
-    Log startup configuration.
-    
-    Logs:
-    - Environment mode (development/production)
-    - Configured CORS origins
-    """
-    import logging
-    logger = logging.getLogger("uvicorn")
-    
-    logger.info(f"CloudSim API starting in {settings.environment} mode")
-    logger.info(f"CORS origins: {settings.cors_origins}")
