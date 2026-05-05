@@ -1,7 +1,8 @@
-# CloudSim — Software Requirements Specification (SRS)
+# CloudSim — Product Requirements Document (PRD / SRS)
 
-> Version: 1.0  
+> Version: 1.1  
 > Owner: Tinh  
+> Last Updated: May 2026  
 > Project Type: Cloud Infrastructure Simulator with Real AWS EC2 Integration
 
 ---
@@ -27,14 +28,15 @@
 ## 1. Introduction
 
 ### 1.1 Purpose
-This SRS defines the requirements for **CloudSim**, a web-based cloud infrastructure management application that integrates with real AWS EC2 for compute, storage, networking, and monitoring.
+This document defines the product and functional requirements for **CloudSim**, a web-based cloud infrastructure management application that integrates with real AWS EC2 for compute, storage, networking, and monitoring. It serves as both the **Product Requirements Document (PRD)** for stakeholders and the **Software Requirements Specification (SRS)** for engineering.
 
 ### 1.2 Scope
 CloudSim provides an AWS console-like experience:
-- Provision, start/stop, reboot, and terminate **EC2 instances**.
-- View **security groups**, **networking**, and **storage** details.
-- **Monitor** CPU/RAM/network metrics via CloudWatch integration.
-- **Cost tracking** via AWS Cost Explorer.
+- Provision, start, stop, reboot, and terminate **EC2 instances**.
+- View **security groups**, **VPC / subnet networking**, **EBS storage**, and **tags**.
+- **Monitor** CPU, network, and disk metrics via CloudWatch — with snapshots persisted to PostgreSQL.
+- **Cost tracking** via AWS Cost Explorer (daily breakdown, monthly projection).
+- **Role-Based Access Control** (Admin, DevOps Engineer, User) enforced at the API layer.
 - Provide **REST APIs** for developer automation.
 
 ### 1.3 Definitions, Acronyms, Abbreviations
@@ -43,7 +45,9 @@ CloudSim provides an AWS console-like experience:
 | Instance | AWS EC2 compute node |
 | Volume | EBS block storage attached to an instance |
 | Security Group | Virtual firewall for instance network rules |
-| Metric | CloudWatch time series data (CPU, Network, etc.) |
+| Metric | CloudWatch time-series data (CPU, Network, Disk I/O) |
+| RBAC | Role-Based Access Control (Admin, DevOps Engineer, User) |
+| JWT | JSON Web Token used for stateless authentication |
 | MVP | Minimum Viable Product |
 
 ### 1.4 References
@@ -58,18 +62,18 @@ CloudSim provides an AWS console-like experience:
 
 ### 2.1 Product Perspective
 CloudSim is a fullstack web application with:
-- **Frontend**: React 18 + TypeScript + Tailwind CSS + shadcn/ui
-- **Backend**: FastAPI + SQLAlchemy + boto3 (AWS SDK)
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui (deployed to Vercel)
+- **Backend**: FastAPI + SQLAlchemy + boto3 (deployed to Render)
 - **Database**: PostgreSQL
 - **Cloud**: AWS EC2, CloudWatch, Cost Explorer
-- **CI/CD**: GitHub Actions
+- **CI/CD**: GitHub Actions (lint → test → build → deploy on push to `main`)
 
 ### 2.2 User Classes & Characteristics
 | Role | Permissions |
 |------|-------------|
-| **User** | Manage (start/stop/reboot/terminate) own instances, view own metrics |
-| **DevOps Engineer** | Full EC2 + CloudWatch + Cost Explorer |
-| **Admin** | All permissions + manage users, modify quotas |
+| **User** | Launch instances, manage (start/stop/reboot/terminate) own instances, view own CloudWatch metrics. No Cost Explorer, no quota modification, no user management. |
+| **DevOps Engineer** | Full EC2 lifecycle on any instance, CloudWatch, Cost Explorer, configure auto-scaling and notifications. View-only quotas. No user management. |
+| **Admin** | All DevOps permissions, plus full user CRUD and modifiable resource quotas. |
 
 ### 2.3 Operating Environment
 - Modern desktop browser (Chrome, Firefox, Safari)
@@ -82,8 +86,8 @@ CloudSim is a fullstack web application with:
 - Single-developer velocity
 
 ### 2.5 Assumptions & Dependencies
-- Valid AWS credentials configured
-- PostgreSQL database available
+- Valid AWS credentials configured (via `.env` — see `IAM_Setup_Guide.md`)
+- PostgreSQL database available locally or via managed service
 - Node.js 18+ and Python 3.11+ installed
 
 ---
@@ -94,10 +98,10 @@ CloudSim is a fullstack web application with:
 
 | As a | I want to | So that I can | Acceptance Criteria |
 |------|-----------|---------------|---------------------|
-| User | View my own virtual instances | Monitor my infrastructure | Dashboard shows instance name, status, type, IPs (filtered to own) |
-| User | Manage (start/stop/reboot/terminate) my instance | Manage compute lifecycle | State transitions appropriately for own instance |
-| DevOps Engineer | Create new instances | Provision resources | "Launch Instance" creates real EC2 instance |
-| DevOps Engineer | Manage/Terminate any instance | Clean up resources | Instance removed from AWS and UI |
+| User | View my own virtual instances | Monitor my infrastructure | Dashboard shows instance name, status, type, IPs (filtered by `CreatedBy` tag) |
+| User | Launch a new instance | Provision my own workload | 4-step wizard creates a real EC2 instance tagged with my user ID |
+| User | Manage (start / stop / reboot / terminate) my instance | Manage compute lifecycle | State transitions for own instance only; 403 for others |
+| DevOps Engineer | Manage / Terminate any instance across users | Clean up resources team-wide | Instance removed from AWS and UI regardless of owner |
 | DevOps Engineer | View instance details | Inspect configuration | Details page shows security groups, storage, tags |
 
 ### Epic 2: Storage and Networking
@@ -112,16 +116,18 @@ CloudSim is a fullstack web application with:
 
 | As a | I want to | So that I can | Acceptance Criteria |
 |------|-----------|---------------|---------------------|
-| DevOps Engineer | View real-time metrics (CPU, Network) | Monitor performance | Charts update with CloudWatch data |
-| DevOps Engineer | View cost breakdown | Track spending | Cost charts show daily spend by service |
-| Admin | Export metrics data | Perform analysis | CSV export available |
+| User | View metrics for my own instances | Catch performance issues early | CPU / Network / Disk charts render via CloudWatch |
+| DevOps Engineer | View metrics for any instance | Monitor team performance | Instance dropdown lists all instances; charts update on selection |
+| DevOps Engineer | View cost breakdown | Track spending | Daily and monthly Cost Explorer data displayed |
+| Admin | Retain historical metrics in our DB | Run trend analysis offline | Each fetch persists datapoints to the `metrics` table |
 
 ### Epic 4: System Management
 
 | As a | I want to | So that I can | Acceptance Criteria |
 |------|-----------|---------------|---------------------|
-| Admin | Add or remove users | Control access | Users manageable in IAM panel |
-| Admin | Set resource limits | Enforce quotas | System blocks unauthorized actions |
+| Admin | Create users with assigned roles | Onboard new team members | New user appears in `/api/admin/users` and can log in |
+| Admin | Update or deactivate users | Manage access lifecycle | `is_active=false` blocks login; cannot self-disable |
+| Admin | Delete users | Off-board departed members | Self-deletion blocked; account removed from DB |
 
 ### Epic 5: API Integration
 
@@ -136,15 +142,15 @@ CloudSim is a fullstack web application with:
 
 ### 4.1 Instance Provisioning Flow (Create)
 
-**Actor:** DevOps Engineer
+**Actor:** Any authenticated user (User, DevOps Engineer, Admin)
 
-1. User clicks **"Launch Instance"** button on Dashboard
-2. Modal appears with instance configuration form (name, type)
-3. User submits form → Frontend sends `POST /api/ec2/instances`
-4. Backend calls AWS `ec2.run_instances()` API
+1. User clicks **"+ Launch Instance"** button on Dashboard
+2. 4-step wizard opens (Name & AMI → Instance Type → Network & Storage → Review)
+3. User submits → Frontend sends `POST /api/ec2/instances`
+4. Backend calls AWS `ec2.run_instances()` and tags the instance with `CreatedBy=<user_id>` and `CreatedByEmail`
 5. AWS returns instance ID with `pending` status
-6. Backend returns success response with instance details
-7. Frontend refreshes Dashboard showing new instance
+6. Backend returns `{ message, instance_id }`
+7. Frontend refreshes Dashboard showing the new instance
 
 **API:** `POST /api/ec2/instances`
 ```json
@@ -229,20 +235,22 @@ Response: {
 - **FR-9:** Display VPC, Subnet, and DNS information
 
 ### 5.3 Monitoring & Metrics (Epic 3)
-- **FR-10:** Fetch CloudWatch metrics for instances
-- **FR-11:** Display CPU utilization charts
-- **FR-12:** Display network I/O charts
-- **FR-13:** Display cost breakdown (mocked for cost savings)
+- **FR-10:** Fetch CloudWatch metrics (CPU, NetworkIn, NetworkOut, DiskReadOps, DiskWriteOps) for instances
+- **FR-11:** Display CPU utilization, network, and disk I/O charts (Recharts)
+- **FR-12:** Persist each CloudWatch datapoint to the local `metrics` table on fetch (idempotent)
+- **FR-13:** Display Cost Explorer data — daily breakdown and current-month projection
 
 ### 5.4 System Management (Epic 4)
-- **FR-14:** User authentication with JWT tokens
-- **FR-15:** Role-based access control (User, DevOps Engineer, Admin)
-- **FR-16:** IAM panel for user management
+- **FR-14:** User authentication with JWT (HS256, 30-minute TTL) and bcrypt password hashing
+- **FR-15:** Role-based access control: `Admin`, `DevOps Engineer`, `User`
+- **FR-16:** Admin-only IAM panel for full user CRUD (`/api/admin/users`)
+- **FR-17:** Ownership filtering for `User` role via the `CreatedBy` AWS resource tag
 
 ### 5.5 API Integration (Epic 5)
-- **FR-17:** RESTful API for all instance operations
-- **FR-18:** Consistent JSON response format
-- **FR-19:** Error handling with appropriate HTTP status codes
+- **FR-18:** RESTful API for all instance, metrics, cost, and admin operations
+- **FR-19:** Consistent JSON response format with Pydantic schemas
+- **FR-20:** Error handling with appropriate HTTP status codes (401, 403, 404, 502, 503)
+- **FR-21:** Security headers middleware (X-Frame-Options, X-XSS-Protection, etc.) on all responses
 
 ---
 
@@ -259,19 +267,53 @@ Response: {
 
 ### 6.2 REST API Endpoints
 
-Base URL: `http://localhost:8000/api/ec2`
+Base URL (dev): `http://localhost:8000`
+
+**Authentication — `/api/auth`**
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/instances` | List all instances |
-| GET | `/instances/{id}` | Get instance details |
-| POST | `/instances` | Create new instance |
-| POST | `/instances/{id}/start` | Start instance |
-| POST | `/instances/{id}/stop` | Stop instance |
-| POST | `/instances/{id}/reboot` | Reboot instance |
-| DELETE | `/instances/{id}` | Terminate instance |
-| GET | `/instances/{id}/metrics` | Get CloudWatch metrics |
-| GET | `/instance-types` | List available instance types |
+| POST | `/api/auth/register` | Register a new user (default role `User`) |
+| POST | `/api/auth/login` | OAuth2 password flow → returns JWT |
+| GET | `/api/auth/me` | Return the currently authenticated user |
+
+**EC2 Instances — `/api/ec2`**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/ec2/instances` | List instances (filtered by ownership for `User` role) |
+| GET | `/api/ec2/instances/{id}` | Get instance details (Details / Security / Networking / Storage / Tags) |
+| POST | `/api/ec2/instances` | Create new instance |
+| POST | `/api/ec2/instances/{id}/start` | Start instance |
+| POST | `/api/ec2/instances/{id}/stop` | Stop instance |
+| POST | `/api/ec2/instances/{id}/reboot` | Reboot instance |
+| DELETE | `/api/ec2/instances/{id}` | Terminate instance |
+| GET | `/api/ec2/instance-types` | List available instance types |
+
+**Metrics & Costs — `/api/ec2`**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/ec2/instances/{id}/metrics` | CloudWatch history (CPU, Network, Disk) — also persisted to DB |
+| GET | `/api/ec2/instances/{id}/metrics/current` | Latest single-point metrics for dashboard cards |
+| GET | `/api/ec2/costs/daily` | Daily cost breakdown for last N days |
+| GET | `/api/ec2/costs/summary` | Month-to-date spend and projected monthly total |
+
+**Admin — `/api/admin` (Admin role required)**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/users` | List all users |
+| POST | `/api/admin/users` | Create user with role |
+| PUT | `/api/admin/users/{user_id}` | Update user role / active status |
+| DELETE | `/api/admin/users/{user_id}` | Delete user |
+
+**System**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Liveness check for load balancers |
+| GET | `/docs` | OpenAPI Swagger UI (development only) |
 
 ### 6.3 Authentication
 - JWT Bearer token in `Authorization` header
@@ -284,24 +326,34 @@ Base URL: `http://localhost:8000/api/ec2`
 
 ### 7.1 Database Entities
 
-**User**
+**User** (`users` table)
 ```
-id, email, password_hash, role, created_at
+id, email, hashed_password, role, is_active, created_at
 ```
+- `role` is constrained to `Admin`, `DevOps Engineer`, or `User` via a CHECK constraint.
 
-**Instance** (synced from AWS)
+**Instance** (`instances` table — synced from AWS)
 ```
-id, instance_id, name, instance_type, state, public_ip, private_ip, availability_zone, launch_time, synced_at
+instance_id (PK), name, instance_type, state, public_ip, private_ip,
+availability_zone, launch_time, last_synced, created_by_user_id
 ```
+- Composite index on `(state, last_synced)` for fast dashboard queries.
+
+**Metric** (`metrics` table — CloudWatch snapshots)
+```
+id (PK), instance_id, metric_name, value, unit, recorded_at, collected_at
+```
+- Composite index on `(instance_id, metric_name, recorded_at)`.
+- Idempotency guard prevents duplicate datapoints when a metric refresh is repeated.
 
 ### 7.2 External Data (AWS)
 
 Retrieved in real-time via boto3:
-- Security Groups
-- EBS Volumes
-- Tags
-- CloudWatch Metrics
-- Cost Explorer data
+- Security Groups (EC2)
+- EBS Volumes (EC2)
+- Resource Tags (EC2 — including the `CreatedBy` ownership tag)
+- CloudWatch Metrics (CPU, Network, Disk)
+- Cost Explorer (`GetCostAndUsage`, `GetCostForecast`)
 
 ---
 
@@ -313,9 +365,10 @@ Retrieved in real-time via boto3:
 - Charts update within 1s of data fetch
 
 ### 8.2 Security
-- JWT authentication with bcrypt password hashing
-- Role-based access control at API level
-- CORS configured for frontend origin only
+- JWT authentication (HS256, 30-minute TTL) with bcrypt password hashing (work factor 12)
+- Role-based access control enforced at the API layer via FastAPI dependencies
+- CORS restricted to configured frontend origins (localhost dev + production domain)
+- Security headers middleware (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) on every response
 - AWS credentials via environment variables (never in code)
 
 ### 8.3 Reliability
@@ -334,53 +387,54 @@ Retrieved in real-time via boto3:
 
 ### 9.1 Component Diagram
 
+See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered flows. A simplified text view:
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        Frontend                              │
-│  (React + TypeScript + Tailwind + shadcn/ui)                │
+│  (React 18 + TypeScript + Vite + Tailwind + shadcn/ui)      │
 │                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │Dashboard │  │ Details  │  │Monitoring│  │  Login   │    │
+│  │Dashboard │  │ Details  │  │Monitoring│  │  IAM &   │    │
+│  │          │  │ (5 tabs) │  │ (5 tabs) │  │ Settings │    │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
-│       │             │             │             │           │
-│       └─────────────┴─────────────┴─────────────┘           │
-│                          │                                   │
+│       └─────────────┴──────┬──────┴─────────────┘           │
 │                     Axios API Client                         │
 └──────────────────────────┼──────────────────────────────────┘
-                           │ HTTP/REST
+                           │ HTTPS  (Authorization: Bearer JWT)
 ┌──────────────────────────┼──────────────────────────────────┐
-│                     Backend (FastAPI)                        │
-│                          │                                   │
-│  ┌─────────────┐  ┌──────┴──────┐  ┌─────────────┐         │
+│                Backend (FastAPI on Render)                   │
+│  Security Headers Middleware → CORS → get_current_user()    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
 │  │ Auth Routes │  │  EC2 Routes │  │Admin Routes │         │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-│         │                │                │                  │
 │         └────────────────┼────────────────┘                  │
-│                          │                                   │
-│              ┌───────────┴───────────┐                      │
-│              │    AWS Service        │                      │
-│              │      (boto3)          │                      │
-│              └───────────┬───────────┘                      │
+│                  ┌───────┴───────┐                           │
+│                  │  aws_service  │ (boto3 wrapper)           │
+│                  └───────┬───────┘                           │
 └──────────────────────────┼──────────────────────────────────┘
                            │
-         ┌─────────────────┼─────────────────┐
-         │                 │                 │
-    ┌────┴────┐      ┌────┴────┐      ┌────┴────┐
-    │   AWS   │      │   AWS   │      │PostgreSQL│
-    │   EC2   │      │CloudWatch│     │    DB    │
-    └─────────┘      └─────────┘      └──────────┘
+   ┌───────────┬───────────┼───────────┬─────────────┐
+   ▼           ▼           ▼           ▼             ▼
+┌──────┐  ┌──────────┐  ┌──────┐  ┌──────────┐  ┌──────────┐
+│ EC2  │  │CloudWatch│  │Cost  │  │PostgreSQL│  │PostgreSQL│
+│      │  │          │  │Expl. │  │  users   │  │instances │
+└──────┘  └──────────┘  └──────┘  └──────────┘  │ + metrics│
+                                                 └──────────┘
 ```
 
 ### 9.2 Technology Stack
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React 18, TypeScript, Tailwind CSS, shadcn/ui, Recharts |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts |
 | API Client | Axios |
-| Backend | FastAPI, Pydantic, SQLAlchemy |
+| Backend | FastAPI (lifespan handlers), Pydantic, SQLAlchemy |
 | AWS SDK | boto3 |
 | Database | PostgreSQL |
-| Auth | JWT (python-jose), bcrypt |
+| Auth | JWT (python-jose, HS256), bcrypt |
+| CI/CD | GitHub Actions |
+| Hosting | Render (backend) · Vercel (frontend) |
 
 ---
 
@@ -408,23 +462,34 @@ Retrieved in real-time via boto3:
 
 ### UC-5: Monitor Performance
 **Trigger:** User opens Monitoring tab
-**Flow:** Select instance → Fetch metrics → Render charts
-**Output:** CPU and network charts with historical data
+**Flow:** Select instance → Fetch CloudWatch metrics → Persist datapoints to `metrics` table → Render charts
+**Output:** CPU, Network, and Disk I/O charts with historical data
+
+### UC-6: Manage Users (Admin)
+**Trigger:** Admin opens IAM & Settings → User Management
+**Flow:** List users → Create / update / delete via `/api/admin/users` endpoints
+**Output:** User table updated; new accounts can immediately log in
+
+### UC-7: Track Spend
+**Trigger:** Admin or DevOps Engineer opens Monitoring → Cost tab
+**Flow:** Fetch `/api/ec2/costs/daily` and `/api/ec2/costs/summary` from Cost Explorer
+**Output:** Daily breakdown chart and month-to-date / projected total
 
 ---
 
 ## 11. Acceptance Criteria (MVP)
 
-- [x] **AC-1:** User can log in with role selection
-- [x] **AC-2:** Dashboard displays real EC2 instances from AWS
-- [x] **AC-3:** Instance details show security groups, storage, and tags
-- [x] **AC-4:** Start/Stop/Reboot buttons trigger corresponding AWS actions
-- [x] **AC-5:** DevOps/Admin can terminate any instances; Users can terminate own
-- [x] **AC-6:** Monitoring page shows CloudWatch metrics charts
-- [x] **AC-7:** DevOps Engineer can create new instances
-- [x] **AC-8:** All API endpoints require authentication
-- [x] **AC-9:** Role-based access control enforced
-- [x] **AC-10:** Error states handled with user feedback (toasts)
+- [x] **AC-1:** Authenticated users log in via JWT and receive a role-scoped token
+- [x] **AC-2:** Dashboard displays real EC2 instances synced from AWS to the local `instances` table
+- [x] **AC-3:** Instance details show security groups, networking, EBS storage, and tags
+- [x] **AC-4:** Start / Stop / Reboot buttons trigger the corresponding AWS actions
+- [x] **AC-5:** Admin and DevOps can act on any instance; Users are restricted to instances they created (via `CreatedBy` tag)
+- [x] **AC-6:** Monitoring page shows CloudWatch CPU, Network, and Disk I/O charts
+- [x] **AC-7:** Each CloudWatch fetch persists datapoints to the `metrics` table (idempotent)
+- [x] **AC-8:** Cost Explorer integration shows daily breakdown and monthly projection
+- [x] **AC-9:** Admin can create, update, and delete users through `/api/admin/users`
+- [x] **AC-10:** All API endpoints require authentication; role checks enforced server-side
+- [x] **AC-11:** Error states surface clear toasts with appropriate HTTP status codes
 
 ---
 
@@ -450,25 +515,31 @@ Retrieved in real-time via boto3:
 ## 13. Project Management
 
 ### 13.1 Completed Milestones
-- ✅ Week 1: Project setup, wireframes, SRS draft
-- ✅ Week 2: Frontend UI implementation
-- ✅ Week 3: Backend API implementation
-- ✅ Week 4: AWS EC2 integration
-- ✅ Week 5: CloudWatch metrics integration
-- ✅ Week 6: Instance details page with real data
+- ✅ Project setup, wireframes, SRS/PRD draft
+- ✅ Frontend UI implementation (Dashboard, Instance Details, Monitoring, IAM panel)
+- ✅ Backend API implementation (FastAPI + SQLAlchemy)
+- ✅ AWS EC2 integration (boto3, ownership tagging)
+- ✅ CloudWatch metrics integration with Recharts
+- ✅ Instance Details page with real AWS data (5 tabs)
+- ✅ Cost Explorer integration (daily + monthly summary)
+- ✅ Admin user management (CRUD)
+- ✅ Local persistence of CloudWatch metrics (`metrics` table)
+- ✅ Migration to FastAPI lifespan handlers
+- ✅ Security headers middleware
 
 ### 13.2 Current Status
-- All MVP features implemented
-- Real AWS EC2 integration working
-- Frontend connected to backend
+- All MVP features implemented and verified end-to-end
+- Real AWS EC2, CloudWatch, and Cost Explorer integration working
+- RBAC enforced at the API layer for all three roles
+- See `docs/ProjectSprintPlan.csv` for detailed sprint history
 
 ### 13.3 Future Enhancements
-- [ ] Auto-scaling simulation
-- [ ] Cost forecasting
+- [ ] Auto-scaling simulation (UI exists, policy execution pending)
 - [ ] Multi-region support
-- [ ] WebSocket for real-time updates
+- [ ] WebSocket for real-time instance state updates
 - [ ] Dark mode theme
+- [ ] Trend queries / threshold alerts off the persisted `metrics` table
 
 ---
 
-*Document Last Updated: January 2026*
+*Document Last Updated: May 2026*

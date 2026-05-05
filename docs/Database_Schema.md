@@ -26,7 +26,18 @@ erDiagram
         int         created_by_user_id   FK "references USERS.id"
     }
 
+    METRICS {
+        int         id                PK "auto-increment"
+        varchar     instance_id          "AWS EC2 instance ID, indexed"
+        varchar     metric_name          "CPUUtilization | NetworkIn | NetworkOut | DiskReadOps | DiskWriteOps"
+        float       value                "numeric reading"
+        varchar     unit                 "Percent | Bytes | Count"
+        timestamp   recorded_at          "CloudWatch timestamp"
+        timestamp   collected_at         "when CloudSim wrote the row"
+    }
+
     USERS ||--o{ INSTANCES : "creates"
+    INSTANCES ||--o{ METRICS : "produces"
 ```
 
 > **Note:** `created_by_user_id` is enforced at the application layer, not as a database-level foreign key constraint. This is intentional — if a user is deleted, their historical instance records are preserved.
@@ -39,11 +50,13 @@ CloudSim uses PostgreSQL as its primary application database. The database suppo
 - authentication through locally stored user accounts
 - authorization through role values attached to each user
 - local tracking of EC2 instance metadata that the application syncs from AWS
+- local persistence of CloudWatch metric snapshots for historical replay
 
-The current backend ORM defines two application tables:
+The current backend ORM defines three application tables:
 
 - `users`
 - `instances`
+- `metrics`
 
 The backend source of truth is the SQLAlchemy model layer in [backend/app/models.py](/home/tinhc/CloudSim/backend/app/models.py). This document exists as a standalone schema specification so engineers can understand the data model without reverse-engineering the ORM.
 
@@ -101,6 +114,26 @@ Behavior notes:
 - `instance_id` is the durable external identifier, so it is used as the table primary key.
 - The table is not meant to replace AWS as the source of truth for infrastructure.
 - `created_by_user_id` helps the app decide which `User` accounts can manage an instance.
+- A composite index on `(state, last_synced)` accelerates dashboard queries that filter by state and order by recency.
+
+### `metrics`
+Purpose: persist CloudWatch metric snapshots so the application can avoid repeated AWS calls for historical reads and build a long-term performance dataset.
+
+| Column | Type | Nullable | Default | Constraints | Meaning |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `id` | integer | No | auto-increment | Primary key | Internal row identifier |
+| `instance_id` | string / varchar | No | None | Indexed | EC2 instance the reading belongs to |
+| `metric_name` | string / varchar | No | None | None | `CPUUtilization`, `NetworkIn`, `NetworkOut`, `DiskReadOps`, `DiskWriteOps` |
+| `value` | float | No | None | None | Numeric reading |
+| `unit` | string / varchar | Yes | None | None | `Percent`, `Bytes`, `Count` |
+| `recorded_at` | datetime / timestamp | No | None | None | Timestamp from CloudWatch (when AWS measured it) |
+| `collected_at` | datetime / timestamp | No | current UTC time in ORM | None | When CloudSim wrote the row (audit trail) |
+
+Behavior notes:
+
+- Rows are written as a side effect of `GET /api/ec2/instances/{id}/metrics`.
+- A composite index on `(instance_id, metric_name, recorded_at)` makes time-windowed queries fast.
+- Insertion is idempotent: if a row with the same `instance_id + metric_name + recorded_at` already exists, the new datapoint is skipped — safe to re-fetch the same metric window without duplicating data.
 
 ## Constraints and Rules
 
@@ -108,7 +141,10 @@ Behavior notes:
 - `users.id` is the primary key.
 - `users.email` is unique.
 - `instances.instance_id` is the primary key.
+- `metrics.id` is the primary key.
 - `users.role` is constrained to `Admin`, `DevOps Engineer`, or `User` in the PostgreSQL recreation script and ORM check constraint.
+- Composite index `ix_instances_state_synced` on `instances(state, last_synced)`.
+- Composite index `ix_metrics_instance_name_recorded` on `metrics(instance_id, metric_name, recorded_at)`.
 
 ### Application rules
 - `hashed_password` must always store bcrypt hashes.

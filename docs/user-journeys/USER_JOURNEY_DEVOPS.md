@@ -3,8 +3,9 @@
 > **Role:** DevOps Engineer  
 > **IAM Role:** `CloudSimDevOpsRole`  
 > **IAM Policy:** `CloudSimDevOpsPolicy`  
-> **Access Level:** Read/Write - Full EC2 + CloudWatch + Cost Explorer (no user management or quotas)  
-> **Test Account:** `deng@gmail.com`
+> **Access Level:** Read/Write — Full EC2 lifecycle on any instance, CloudWatch, Cost Explorer, auto-scaling and notifications config. View-only resource quotas. No user management.  
+> **Test Account:** `deng@gmail.com`  
+> **Last Updated:** May 2026
 
 ## Persona
 
@@ -36,14 +37,14 @@ Sam is the DevOps Engineer at a small startup that uses CloudSim to manage AWS E
 
 Sam navigates to `localhost:5173` and enters credentials (`deng@gmail.com`) into the CloudSim login modal. After clicking Sign In, the backend authenticates the request and returns a JWT token containing the `DevOps Engineer` role. Sam is redirected to the Dashboard with a `DevOps Engineer` badge displayed next to the email in the top navigation bar.
 
-![DevOps Login](images/deng/01-login-credentials.png)
+![DevOps Login](../images/deng/01-login-credentials.png)
 *Credentials filled in for the DevOps Engineer test account.*
 
 ## Stage 2 - Dashboard & Cross-User Visibility
 
 Like the Admin, Sam's dashboard shows all instances across all users - not just his own. The All Instances table lists instances from every user, including `web-server-01` (created by `user@gmail.com`) and `web-server-02` (created by `user2@gmail.com`), each with full action buttons for Stop, Reboot, and Terminate.
 
-![DevOps Dashboard](images/deng/02-dashboard-all-instances.png)
+![DevOps Dashboard](../images/deng/02-dashboard-all-instances.png)
 *DevOps Engineer dashboard showing all instances across all users with full action controls.*
 
 The lower section includes an Instance Alarms panel with alarm statuses across all instances (`web-server-01-cpu-high` OK, `db-server-01-disk` ALARM), and an Availability Zone Health panel showing instance distribution and average CPU per zone.
@@ -58,23 +59,23 @@ Beyond launching, Sam can perform lifecycle actions on any instance across all u
 
 Sam navigates to the **Monitoring** tab to review performance metrics. The instance selector dropdown lists all instances across all users. Sam can select any instance and review metric summary cards for CPU Utilization, Memory Usage, Network In, Disk Ops, and Today's Cost.
 
-The monitoring view provides five tabs - **CPU**, **Memory**, **Network**, **Disk I/O**, and **Cost** - each rendering a time-series chart for the selected instance and time range. Below the charts, a System Logs section displays timestamped log entries with INFO/WARN level tags. Sam also has access to Cost Explorer data for tracking spending trends.
+The monitoring view provides five tabs — **CPU**, **Memory**, **Network**, **Disk I/O**, and **Cost** — each rendering a time-series chart for the selected instance and time range. Each CloudWatch fetch is also persisted to the local `metrics` table, building a historical dataset Sam can later use for trend analysis. Below the charts, a System Logs section displays timestamped log entries with INFO/WARN level tags. Sam has full Cost Explorer access for tracking spending trends across the team.
 
-![DevOps Monitoring](images/deng/03-monitoring.png)
+![DevOps Monitoring](../images/deng/03-monitoring.png)
 *DevOps Engineer monitoring view showing CPU metrics for a selected instance.*
 
 ## Stage 5 - Settings - Overview
 
 Sam clicks **IAM & Settings** in the top navigation to open the settings sidebar. The Overview tab shows his email and role, a Role Permissions panel with all three role levels (Admin - Full Access; DevOps Engineer - Read/Write; User - Read Only), and Recent Audit Logs. Unlike the Admin view, there is no User Management section - Sam cannot add, delete, or modify user accounts.
 
-![IAM & Settings - DevOps Overview](images/deng/04-iam-settings-overview.png)
+![IAM & Settings - DevOps Overview](../images/deng/04-iam-settings-overview.png)
 *DevOps Engineer Overview tab - no User Management section visible.*
 
 ## Stage 6 - Settings - Advanced
 
 Sam switches to the **Advanced Settings** tab. Resource Quotas (Max Instances: 20, Max vCPUs: 40) are displayed as view-only with a warning that modification requires Admin access. However, Sam can configure **Auto Scaling Policies** - toggling auto-scaling on/off and adjusting Scale Up and Scale Down thresholds. Notifications for Email Alerts and Slack Integration are also configurable.
 
-![IAM & Settings - DevOps Advanced](images/deng/05-iam-settings-advanced.png)
+![IAM & Settings - DevOps Advanced](../images/deng/05-iam-settings-advanced.png)
 *Advanced Settings tab showing view-only quotas but editable auto-scaling and notifications.*
 
 | Setting | DevOps Access |
