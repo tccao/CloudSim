@@ -98,19 +98,21 @@ def engine():
 # =============================================================================
 @pytest.fixture(scope="function")
 def db_session(engine):
+    #Open connection to the database 
     connection = engine.connect()
+    # Start a transaction that will encompass the entire session (temp container for database)
     transaction = connection.begin()
-
+    # Create a session bound to this connection and transaction (python object instead of SQL)
     TestingSessionLocal = sessionmaker(bind=connection)
     session = TestingSessionLocal()
 
-    # begin_nested() creates a SAVEPOINT — the inner "fence"
+    # begin_nested() creates a SAVEPOINT whenever commit() is called. 
     nested = session.begin_nested()
 
     # Intercept commit: replace with flush (assigns IDs but doesn't persist)
     original_commit = session.commit
     def fake_commit():
-        nonlocal nested
+        nonlocal nested #nonlocal allows us to modify the nested variable defined in the outer scope
         session.flush()
         # Re-establish the savepoint so the next commit also works
         nested = session.begin_nested()
