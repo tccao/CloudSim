@@ -1,11 +1,8 @@
 # =============================================================================
 # conftest.py — Shared Test Fixtures for CloudSim
 # =============================================================================
-#
-# WHY THIS FILE MATTERS:
 # pytest automatically discovers conftest.py and makes its fixtures available
-# to all test files in this directory (and subdirectories). This is NOT a file
-# you import — pytest injects fixtures by NAME via function arguments.
+# to all test files in this directory (and subdirectories).
 #
 # ARCHITECTURE:
 #   engine (session scope)
@@ -68,7 +65,7 @@ def engine():
     test_engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+        poolclass=StaticPool, #static pool keeps the same connection alive for the entire test session
     )
     # Create all tables defined in our ORM models
     Base.metadata.create_all(bind=test_engine)
@@ -270,8 +267,7 @@ def inactive_headers(inactive_user):
 # This replaces every function call (list_instances, get_instance, etc.)
 # with a MagicMock that we can configure per-test.
 #
-# For direct aws_service.py unit tests, you CAN use moto — but that's
-# optional and lower priority.
+# For direct aws_service.py unit tests, we CAN use moto 
 # =============================================================================
 @pytest.fixture
 def mock_aws_service():

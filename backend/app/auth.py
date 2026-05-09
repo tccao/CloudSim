@@ -27,7 +27,7 @@
 # =============================================================================
 # IMPORTS
 # =============================================================================
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from jose import JWTError, jwt
@@ -35,7 +35,7 @@ import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 from .db import get_db
 from .config import settings
@@ -60,7 +60,11 @@ def _bcrypt_hash(password: str) -> str:
 
 def _bcrypt_verify(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a bcrypt hash string."""
-    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    except Exception:
+        # bcrypt raises ValueError on malformed hashes (e.g., corrupt DB row)
+        return False
 
 
 # =============================================================================
@@ -102,9 +106,7 @@ class UserRead(BaseModel):
     email: str
     role: str  # Admin, DevOps Engineer, User
     is_active: bool
-
-    class Config:
-        from_attributes = True  # Allows ORM model conversion
+    model_config = ConfigDict(from_attributes=True)
 
 
 # =============================================================================
@@ -156,7 +158,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         token = create_access_token(data={"sub": "user@example.com"})
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.now(timezone.utc) + (
+        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 

@@ -25,15 +25,20 @@
 # =============================================================================
 # IMPORTS
 # =============================================================================
-from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
 from typing import Optional, Tuple
 from functools import lru_cache
+from pathlib import Path
 import secrets
 import warnings
 import os
 import configparser
 import json
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ENV_FILE = PROJECT_ROOT / ".env"
 
 
 # =============================================================================
@@ -91,7 +96,7 @@ def load_local_credentials() -> Tuple[Optional[str], Optional[str]]:
 # CREDENTIAL INITIALIZATION
 # =============================================================================
 # Load credentials based on environment
-if os.getenv('ENVIRONMENT', 'development').lower() == 'production':
+if os.getenv('CLOUDSIM_ENVIRONMENT', 'development').lower() == 'production':
     root_access_key, root_secret_key = get_root_credentials()
 else:
     root_access_key, root_secret_key = load_local_credentials()
@@ -110,12 +115,18 @@ class Settings(BaseSettings):
     - Validates types
     - Provides defaults
     """
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE,
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
     
     # =========================================================================
     # ENVIRONMENT
     # =========================================================================
-    environment: str = "development"  # development, staging, production
-    debug: bool = True  # Set to False in production
+    environment: str = Field("development", validation_alias="CLOUDSIM_ENVIRONMENT")  # development, staging, production
+    debug: bool = Field(True, validation_alias="CLOUDSIM_DEBUG")  # Set to False in production
     
     # =========================================================================
     # DATABASE
@@ -188,7 +199,7 @@ class Settings(BaseSettings):
         
         # We can't access other fields directly in validators, so check via environment
         import os
-        env = os.getenv("ENVIRONMENT", "development").lower()
+        env = os.getenv("CLOUDSIM_ENVIRONMENT", "development").lower()
         
         if env == "production":
             if v == default_key:
@@ -227,14 +238,6 @@ class Settings(BaseSettings):
         """Check if running in development mode."""
         return self.environment.lower() == "development"
     
-    # =========================================================================
-    # PYDANTIC CONFIG
-    # =========================================================================
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-
 
 # =============================================================================
 # UTILITY FUNCTIONS
