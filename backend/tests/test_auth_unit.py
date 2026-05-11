@@ -44,13 +44,12 @@ def test_verify_correct_password_returns_true():
 
 
 def test_verify_wrong_password_returns_false():
-    hashed = get_password_hash("correct-horse-battery-staple")
+    hashed = get_password_hash("battery")
     assert verify_password("wrong", hashed) is False
 
 
 def test_verify_wrong_hash_returns_false_not_exception():
     # A corrupt row in the DB must not crash the login endpoint
-    # If this test fails, add a try/except in verify_password
     try:
         result = verify_password("anypassword", "not-a-bcrypt-hash")
         assert result is False

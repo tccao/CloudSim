@@ -19,7 +19,7 @@
 # IMPORTS
 # =============================================================================
 from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, CheckConstraint, Index
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .db import Base
 
@@ -58,7 +58,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(String, default="User", nullable=False)  # Admin, DevOps Engineer, User
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 # =============================================================================
@@ -104,7 +104,7 @@ class Instance(Base):
     launch_time = Column(DateTime, nullable=True)
     
     # Sync metadata
-    last_synced = Column(DateTime, default=datetime.utcnow)
+    last_synced = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_by_user_id = Column(Integer, nullable=True)  # User who created it
 
 
@@ -150,4 +150,4 @@ class Metric(Base):
     value       = Column(Float,  nullable=False)              # the numeric reading
     unit        = Column(String, nullable=True)               # Percent, Bytes, Count
     recorded_at = Column(DateTime, nullable=False)            # timestamp from CloudWatch
-    collected_at = Column(DateTime, default=datetime.utcnow, nullable=False)  # when we stored it
+    collected_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)  # when we stored it

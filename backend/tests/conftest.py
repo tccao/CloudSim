@@ -169,7 +169,7 @@ TEST_PASSWORD = "testpassword123"
 @pytest.fixture
 def admin_user(db_session):
     user = User(
-        email="admin@cloudsim.test",
+        email="admin@example.com",
         hashed_password=get_password_hash(TEST_PASSWORD),
         role="Admin",
         is_active=True,
@@ -182,7 +182,7 @@ def admin_user(db_session):
 @pytest.fixture
 def devops_user(db_session):
     user = User(
-        email="devops@cloudsim.test",
+        email="devops@example.com",
         hashed_password=get_password_hash(TEST_PASSWORD),
         role="DevOps Engineer",
         is_active=True,
@@ -195,7 +195,7 @@ def devops_user(db_session):
 @pytest.fixture
 def regular_user(db_session):
     user = User(
-        email="user@cloudsim.test",
+        email="user@example.com",
         hashed_password=get_password_hash(TEST_PASSWORD),
         role="User",
         is_active=True,
@@ -208,7 +208,7 @@ def regular_user(db_session):
 @pytest.fixture
 def inactive_user(db_session):
     user = User(
-        email="inactive@cloudsim.test",
+        email="inactive@example.com",
         hashed_password=get_password_hash(TEST_PASSWORD),
         role="User",
         is_active=False,
