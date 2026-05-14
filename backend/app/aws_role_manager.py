@@ -117,12 +117,14 @@ class AWSRoleManager:
         """
         credentials = self.assume_role(role_arn, session_name)
         
+        client_region = "us-east-1" if service == "ce" else settings.aws_region
+
         return boto3.client(
             service,
             aws_access_key_id=credentials['AccessKeyId'],
             aws_secret_access_key=credentials['SecretAccessKey'],
             aws_session_token=credentials['SessionToken'],
-            region_name=settings.aws_region,
+            region_name=client_region,
         )
     
     # -------------------------------------------------------------------------

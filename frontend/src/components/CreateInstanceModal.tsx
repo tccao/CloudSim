@@ -22,8 +22,9 @@
 // IMPORTS
 // =============================================================================
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createInstance } from '../api/instances';
+import { getLaunchOptions, type AmiOption, type SecurityGroupOption, type SubnetOption, type VpcOption } from '../api/ec2';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
@@ -52,12 +53,11 @@ interface CreateInstanceModalProps {
 // CONSTANTS - Configuration Options
 // =============================================================================
 
-// AMI options data
-const amiOptions = {
-  'ami-1': { name: 'Amazon Linux 2023 AMI', id: 'ami-0c55b159cbfafe1f0' },
-  'ami-2': { name: 'Ubuntu Server 22.04 LTS', id: 'ami-0a2e8c7f3b8d4c5e6' },
-  'ami-3': { name: 'Windows Server 2022 Base', id: 'ami-0b1e2d3c4f5a6b7c8' },
-};
+const fallbackAmiOptions: AmiOption[] = [
+  { name: 'Amazon Linux 2023 AMI', id: 'ami-0c55b159cbfafe1f0', description: '64-bit (x86)', architecture: 'x86_64' },
+  { name: 'Ubuntu Server 22.04 LTS', id: 'ami-0a2e8c7f3b8d4c5e6', description: '64-bit (x86)', architecture: 'x86_64' },
+  { name: 'Windows Server 2022 Base', id: 'ami-0b1e2d3c4f5a6b7c8', description: '64-bit (x86)', architecture: 'x86_64' },
+];
 
 // Instance type options data
 const instanceTypes = {
@@ -68,21 +68,18 @@ const instanceTypes = {
   't2.large': { vcpu: 2, memory: 8, price: 0.092 },
 };
 
-// VPC options data
-const vpcOptions = {
-  'cloudsim-vpc': 'vpc-0f966dca08a6c0d9b (cloudsim-vpc)',
-};
+const fallbackVpcOptions: VpcOption[] = [
+  { id: 'vpc-0f966dca08a6c0d9b', name: 'cloudsim-vpc', is_default: false },
+];
 
-// Subnet options data
-const subnetOptions = {
-  'cloudsim-public': 'cloudsim-public-0204c01c4e5d0f86d (us-east-1a)',
-  'cloudsim-private': 'cloudsim-private-096492e1ec149a740 (us-east-1a)',
-};
+const fallbackSubnetOptions: SubnetOption[] = [
+  { id: 'subnet-0204c01c4e5d0f86d', name: 'cloudsim-public', vpc_id: 'vpc-0f966dca08a6c0d9b', availability_zone: 'us-east-1a', default_for_az: false },
+  { id: 'subnet-096492e1ec149a740', name: 'cloudsim-private', vpc_id: 'vpc-0f966dca08a6c0d9b', availability_zone: 'us-east-1a', default_for_az: false },
+];
 
-// Security group options data
-const sgOptions = {
-  'cloudsim-ec2-sg': 'sg-0cd0cdc01b676a91e (cloudsim-ec2-sg)',
-};
+const fallbackSecurityGroupOptions: SecurityGroupOption[] = [
+  { id: 'sg-0cd0cdc01b676a91e', name: 'cloudsim-ec2-sg', vpc_id: 'vpc-0f966dca08a6c0d9b', description: 'CloudSim EC2 security group' },
+];
 
 
 // =============================================================================
@@ -95,15 +92,21 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
   // ---------------------------------------------------------------------------
   const [step, setStep] = useState(1);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [amis, setAmis] = useState<AmiOption[]>(fallbackAmiOptions);
+  const [vpcs, setVpcs] = useState<VpcOption[]>(fallbackVpcOptions);
+  const [subnets, setSubnets] = useState<SubnetOption[]>(fallbackSubnetOptions);
+  const [securityGroups, setSecurityGroups] = useState<SecurityGroupOption[]>(fallbackSecurityGroupOptions);
 
   // Form state
   const [instanceName, setInstanceName] = useState('web-server-01');
-  const [selectedAmi, setSelectedAmi] = useState('ami-1');
+  const [selectedAmiId, setSelectedAmiId] = useState(fallbackAmiOptions[0].id);
   const [selectedInstanceType, setSelectedInstanceType] = useState('t2.nano');
-  const [selectedVpc, setSelectedVpc] = useState('cloudsim-vpc');
-  const [selectedSubnet, setSelectedSubnet] = useState('cloudsim-public');
-  const [selectedSecurityGroup, setSelectedSecurityGroup] = useState('cloudsim-ec2-sg');
-  const [volumeSize, setVolumeSize] = useState('1');
+  const [selectedVpcId, setSelectedVpcId] = useState(fallbackVpcOptions[0].id);
+  const [selectedSubnetId, setSelectedSubnetId] = useState(fallbackSubnetOptions[0].id);
+  const [selectedSecurityGroupId, setSelectedSecurityGroupId] = useState(fallbackSecurityGroupOptions[0].id);
+  const [volumeSize, setVolumeSize] = useState('8');
+  const [assignPublicIp, setAssignPublicIp] = useState(true);
+  const [deleteOnTermination, setDeleteOnTermination] = useState(true);
 
   // ---------------------------------------------------------------------------
   // Computed Values
@@ -111,6 +114,61 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
 
   // Calculate estimated monthly cost
   const monthlyCost = (instanceTypes[selectedInstanceType as keyof typeof instanceTypes].price * 730).toFixed(2);
+  const selectedAmi = amis.find((ami) => ami.id === selectedAmiId) || amis[0];
+  const selectedVpc = vpcs.find((vpc) => vpc.id === selectedVpcId) || vpcs[0];
+  const selectedSubnet = subnets.find((subnet) => subnet.id === selectedSubnetId) || subnets[0];
+  const selectedSecurityGroup = securityGroups.find((sg) => sg.id === selectedSecurityGroupId) || securityGroups[0];
+
+  useEffect(() => {
+    if (!open) return;
+
+    const loadLaunchOptions = async () => {
+      try {
+        const options = await getLaunchOptions();
+        if (options.amis.length > 0) {
+          setAmis(options.amis);
+          setSelectedAmiId(options.defaults.ami_id || options.amis[0].id);
+        }
+        if (options.vpcs.length > 0) {
+          setVpcs(options.vpcs);
+          setSelectedVpcId(options.defaults.vpc_id || options.vpcs[0].id);
+        }
+        if (options.subnets.length > 0) {
+          setSubnets(options.subnets);
+          setSelectedSubnetId(options.defaults.subnet_id || options.subnets[0].id);
+        }
+        if (options.security_groups.length > 0) {
+          setSecurityGroups(options.security_groups);
+          setSelectedSecurityGroupId(options.defaults.security_group_id || options.security_groups[0].id);
+        }
+        if (options.instance_types.includes(options.defaults.instance_type)) {
+          setSelectedInstanceType(options.defaults.instance_type);
+        }
+        setVolumeSize(String(options.defaults.volume_size || 8));
+        setAssignPublicIp(options.defaults.assign_public_ip);
+        setDeleteOnTermination(options.defaults.delete_on_termination);
+      } catch (error) {
+        console.error('Failed to load launch options:', error);
+      }
+    };
+
+    loadLaunchOptions();
+  }, [open]);
+
+  useEffect(() => {
+    const matchingSubnets = subnets.filter((subnet) => subnet.vpc_id === selectedVpcId);
+    if (matchingSubnets.length > 0 && !matchingSubnets.some((subnet) => subnet.id === selectedSubnetId)) {
+      setSelectedSubnetId(matchingSubnets[0].id);
+    }
+
+    const matchingSecurityGroups = securityGroups.filter((sg) => !sg.vpc_id || sg.vpc_id === selectedVpcId);
+    if (
+      matchingSecurityGroups.length > 0 &&
+      !matchingSecurityGroups.some((sg) => sg.id === selectedSecurityGroupId)
+    ) {
+      setSelectedSecurityGroupId(matchingSecurityGroups[0].id);
+    }
+  }, [securityGroups, selectedSecurityGroupId, selectedSubnetId, selectedVpcId, subnets]);
 
   // ---------------------------------------------------------------------------
   // Navigation Handlers
@@ -136,6 +194,13 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
       await createInstance({
         name: instanceName,
         instance_type: selectedInstanceType,
+        image_id: selectedAmiId,
+        subnet_id: selectedSubnetId,
+        security_group_ids: selectedSecurityGroupId ? [selectedSecurityGroupId] : undefined,
+        volume_size: Number(volumeSize),
+        volume_type: 'gp3',
+        assign_public_ip: assignPublicIp,
+        delete_on_termination: deleteOnTermination,
       });
 
       toast.success('Instance launched successfully');
@@ -191,54 +256,25 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
 
             <div className="space-y-3">
               <Label>Amazon Machine Image (AMI)</Label>
-              <RadioGroup value={selectedAmi} onValueChange={setSelectedAmi}>
-                <Card className="p-4 mb-3">
-                  <div className="flex items-start gap-3">
-                    <RadioGroupItem value="ami-1" id="ami-1" className="mt-1" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <label htmlFor="ami-1" className="cursor-pointer">
-                          Amazon Linux 2023 AMI
-                        </label>
-                        <Badge variant="secondary">Free tier eligible</Badge>
+              <RadioGroup value={selectedAmiId} onValueChange={setSelectedAmiId}>
+                {amis.map((ami) => (
+                  <Card className="p-4 mb-3" key={ami.id}>
+                    <div className="flex items-start gap-3">
+                      <RadioGroupItem value={ami.id} id={ami.id} className="mt-1" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <label htmlFor={ami.id} className="cursor-pointer">
+                            {ami.name}
+                          </label>
+                          <Badge variant="secondary">{ami.architecture}</Badge>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {ami.id} • {ami.description || 'AWS managed image'}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        ami-0c55b159cbfafe1f0 • 64-bit (x86)
-                      </p>
                     </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4 mb-3">
-                  <div className="flex items-start gap-3">
-                    <RadioGroupItem value="ami-2" id="ami-2" className="mt-1" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <label htmlFor="ami-2" className="cursor-pointer">
-                          Ubuntu Server 22.04 LTS
-                        </label>
-                        <Badge variant="secondary">Free tier eligible</Badge>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        ami-0a2e8c7f3b8d4c5e6 • 64-bit (x86)
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <div className="flex items-start gap-3">
-                    <RadioGroupItem value="ami-3" id="ami-3" className="mt-1" />
-                    <div className="flex-1">
-                      <label htmlFor="ami-3" className="cursor-pointer">
-                        Windows Server 2022 Base
-                      </label>
-                      <p className="text-sm text-gray-500 mt-1">
-                        ami-0b1e2d3c4f5a6b7c8 • 64-bit (x86)
-                      </p>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
+                ))}
               </RadioGroup>
             </div>
           </div>
@@ -333,43 +369,62 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
 
               <div className="space-y-2">
                 <Label htmlFor="vpc">VPC</Label>
-                <Select value={selectedVpc} onValueChange={setSelectedVpc}>
+                <Select value={selectedVpcId} onValueChange={setSelectedVpcId}>
                   <SelectTrigger id="vpc">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cloudsim-vpc">vpc-0f966dca08a6c0d9b (cloudsim-vpc)</SelectItem>
+                    {vpcs.map((vpc) => (
+                      <SelectItem key={vpc.id} value={vpc.id}>
+                        {vpc.id} ({vpc.name})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="subnet">Subnet</Label>
-                <Select value={selectedSubnet} onValueChange={setSelectedSubnet}>
+                <Select value={selectedSubnetId} onValueChange={setSelectedSubnetId}>
                   <SelectTrigger id="subnet">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cloudsim-public">cloudsim-public-0204c01c4e5d0f86d (us-east-1a)</SelectItem>
-                    <SelectItem value="cloudsim-private">cloudsim-private-096492e1ec149a740 (us-east-1a)</SelectItem>
+                    {subnets
+                      .filter((subnet) => !selectedVpcId || subnet.vpc_id === selectedVpcId)
+                      .map((subnet) => (
+                        <SelectItem key={subnet.id} value={subnet.id}>
+                          {subnet.name} ({subnet.availability_zone || subnet.id})
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="security-group">Security Group</Label>
-                <Select value={selectedSecurityGroup} onValueChange={setSelectedSecurityGroup}>
+                <Select value={selectedSecurityGroupId} onValueChange={setSelectedSecurityGroupId}>
                   <SelectTrigger id="security-group">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cloudsim-ec2-sg">sg-0cd0cdc01b676a91e (cloudsim-ec2-sg)</SelectItem>
+                    {securityGroups
+                      .filter((sg) => !selectedVpcId || !sg.vpc_id || sg.vpc_id === selectedVpcId)
+                      .map((sg) => (
+                        <SelectItem key={sg.id} value={sg.id}>
+                          {sg.id} ({sg.name})
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex items-center space-x-2 pt-2">
-                <Checkbox id="auto-assign-ip" defaultChecked />
+                <Checkbox
+                  id="auto-assign-ip"
+                  checked={assignPublicIp}
+                  onCheckedChange={(checked) => setAssignPublicIp(checked === true)}
+                />
                 <label
                   htmlFor="auto-assign-ip"
                   className="text-sm cursor-pointer"
@@ -393,18 +448,22 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
 
                   <div className="space-y-2">
                     <Label htmlFor="volume-size">Size (GiB)</Label>
-                    <Input
-                      id="volume-size"
-                      type="number"
-                      value={volumeSize}
-                      onChange={(e) => setVolumeSize(e.target.value)}
+                  <Input
+                    id="volume-size"
+                    type="number"
+                    value={volumeSize}
+                    onChange={(e) => setVolumeSize(e.target.value)}
                       min="8"
                       max="1000"
                     />
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="delete-on-termination" defaultChecked />
+                    <Checkbox
+                      id="delete-on-termination"
+                      checked={deleteOnTermination}
+                      onCheckedChange={(checked) => setDeleteOnTermination(checked === true)}
+                    />
                     <label
                       htmlFor="delete-on-termination"
                       className="text-sm cursor-pointer"
@@ -432,7 +491,7 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">AMI</span>
-                  <span className="text-sm">{amiOptions[selectedAmi as keyof typeof amiOptions].name}</span>
+                  <span className="text-sm">{selectedAmi?.name}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
@@ -442,17 +501,21 @@ export function CreateInstanceModal({ open, onOpenChange }: CreateInstanceModalP
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">VPC</span>
-                  <span className="text-sm">{vpcOptions[selectedVpc as keyof typeof vpcOptions]}</span>
+                  <span className="text-sm">{selectedVpc ? `${selectedVpc.id} (${selectedVpc.name})` : '-'}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Subnet</span>
-                  <span className="text-sm">{subnetOptions[selectedSubnet as keyof typeof subnetOptions]}</span>
+                  <span className="text-sm">
+                    {selectedSubnet ? `${selectedSubnet.name} (${selectedSubnet.availability_zone || selectedSubnet.id})` : '-'}
+                  </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Security Group</span>
-                  <span className="text-sm">{sgOptions[selectedSecurityGroup as keyof typeof sgOptions]}</span>
+                  <span className="text-sm">
+                    {selectedSecurityGroup ? `${selectedSecurityGroup.id} (${selectedSecurityGroup.name})` : '-'}
+                  </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">

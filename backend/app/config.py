@@ -10,10 +10,13 @@
 # 3. Default values
 #
 # AWS CREDENTIALS (in priority order):
-# 1. Production: AWS Secrets Manager (prod/cloudsim)
-# 2. Development: root-credentials/credentials file
-# 3. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
-# 4. AWS profile (~/.aws/credentials)
+# 1. Environment variables / .env (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+# 2. Development only: root-credentials/credentials file
+# 3. AWS profile (~/.aws/credentials)
+# 4. Default boto3 credential chain
+#
+# The local root-credentials file is a development super-key convenience and is
+# intentionally never loaded when CLOUDSIM_ENVIRONMENT=production.
 #
 # USAGE:
 #   from .config import settings
@@ -34,7 +37,6 @@ import secrets
 import warnings
 import os
 import configparser
-import json
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -45,29 +47,12 @@ ENV_FILE = PROJECT_ROOT / ".env"
 # AWS CREDENTIALS LOADING
 # =============================================================================
 
-def get_root_credentials() -> Tuple[str, str]:
-    """
-    Get root AWS credentials from Secrets Manager (for production).
-    
-    Retrieves credentials stored in AWS Secrets Manager under 'prod/cloudsim'.
-    
-    Returns:
-        Tuple of (access_key_id, secret_access_key)
-    """
-    import boto3
-    client = boto3.client('secretsmanager', region_name='us-east-1')
-    response = client.get_secret_value(SecretId='prod/cloudsim')
-    secret = json.loads(response['SecretString'])
-    return secret['aws_access_key_id'], secret['aws_secret_access_key']
-
-
 def load_local_credentials() -> Tuple[Optional[str], Optional[str]]:
     """
-    Load AWS credentials from root-credentials/credentials file (for development).
+    Load dev-only AWS super-key credentials from root-credentials/credentials.
     
     Looks for credentials in:
     1. root-credentials/credentials file (INI format, [root] section)
-    2. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
     
     Returns:
         Tuple of (access_key_id, secret_access_key) or (None, None)
@@ -88,16 +73,16 @@ def load_local_credentials() -> Tuple[Optional[str], Optional[str]]:
                 config['root'].get('aws_secret_access_key')
             )
     
-    # Fall back to environment variables
-    return os.getenv('AWS_ACCESS_KEY_ID'), os.getenv('AWS_SECRET_ACCESS_KEY')
+    return None, None
 
 
 # =============================================================================
 # CREDENTIAL INITIALIZATION
 # =============================================================================
-# Load credentials based on environment
+# Load development super-key credentials only outside production. Environment
+# variables and .env still take priority through BaseSettings below.
 if os.getenv('CLOUDSIM_ENVIRONMENT', 'development').lower() == 'production':
-    root_access_key, root_secret_key = get_root_credentials()
+    root_access_key, root_secret_key = None, None
 else:
     root_access_key, root_secret_key = load_local_credentials()
 
@@ -150,8 +135,8 @@ class Settings(BaseSettings):
     # =========================================================================
     # AWS CONFIGURATION
     # =========================================================================
-    aws_access_key_id: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
+    aws_access_key_id: Optional[str] = root_access_key
+    aws_secret_access_key: Optional[str] = root_secret_key
     aws_session_token: Optional[str] = None
     aws_profile: Optional[str] = None
     aws_region: str = "us-east-1"

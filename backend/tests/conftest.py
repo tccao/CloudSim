@@ -259,9 +259,9 @@ def inactive_headers(inactive_user):
 # MOCK AWS SERVICE FIXTURE
 # =============================================================================
 # WHY patch instead of moto?
-# aws_service.py creates ec2 and ec2_resource clients at MODULE IMPORT TIME
-# (lines 119-121). moto's @mock_aws only intercepts boto3 calls made AFTER
-# activation. Pre-imported clients bypass moto entirely.
+# aws_service.py creates AWS clients at MODULE IMPORT TIME. moto's @mock_aws
+# only intercepts boto3 calls made AFTER activation. Pre-imported clients
+# bypass moto entirely.
 #
 # SOLUTION: Patch the entire aws_service MODULE as used by ec2_routes.
 # This replaces every function call (list_instances, get_instance, etc.)

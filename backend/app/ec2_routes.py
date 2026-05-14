@@ -32,9 +32,9 @@
 # IMPORTS
 # =============================================================================
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from .auth import get_current_user
@@ -110,13 +110,13 @@ class InstanceDetailResponse(InstanceResponse):
     private_dns: Optional[str]
     vpc_id: Optional[str]
     subnet_id: Optional[str]
-    security_groups: list[SecurityGroup] = []
+    security_groups: list[SecurityGroup] = Field(default_factory=list)
     
     # Storage
-    block_devices: list[BlockDevice] = []
+    block_devices: list[BlockDevice] = Field(default_factory=list)
     
     # Metadata
-    tags: list[Tag] = []
+    tags: list[Tag] = Field(default_factory=list)
     iam_role: Optional[str] = None
 
 
@@ -128,6 +128,62 @@ class CreateInstanceRequest(BaseModel):
     """
     name: str
     instance_type: str = "t2.micro"
+    image_id: Optional[str] = None
+    subnet_id: Optional[str] = None
+    security_group_ids: list[str] = Field(default_factory=list)
+    volume_size: int = Field(8, ge=8, le=1000)
+    volume_type: str = "gp3"
+    assign_public_ip: bool = True
+    delete_on_termination: bool = True
+
+
+class AmiOption(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    architecture: str = "x86_64"
+
+
+class VpcOption(BaseModel):
+    id: str
+    name: str
+    is_default: bool = False
+
+
+class SubnetOption(BaseModel):
+    id: str
+    name: str
+    vpc_id: str
+    availability_zone: str = ""
+    default_for_az: bool = False
+
+
+class SecurityGroupOption(BaseModel):
+    id: str
+    name: str
+    vpc_id: Optional[str] = None
+    description: str = ""
+
+
+class LaunchDefaults(BaseModel):
+    instance_type: str = "t2.micro"
+    ami_id: Optional[str] = None
+    vpc_id: Optional[str] = None
+    subnet_id: Optional[str] = None
+    security_group_id: Optional[str] = None
+    volume_size: int = 8
+    volume_type: str = "gp3"
+    assign_public_ip: bool = True
+    delete_on_termination: bool = True
+
+
+class LaunchOptionsResponse(BaseModel):
+    instance_types: list[str] = Field(default_factory=list)
+    amis: list[AmiOption] = Field(default_factory=list)
+    vpcs: list[VpcOption] = Field(default_factory=list)
+    subnets: list[SubnetOption] = Field(default_factory=list)
+    security_groups: list[SecurityGroupOption] = Field(default_factory=list)
+    defaults: LaunchDefaults
 
 
 class ActionResponse(BaseModel):
@@ -166,7 +222,7 @@ def sync_instances_to_db(aws_instances: list, db: Session):
                 launch_time = datetime.fromisoformat(
                     inst["launch_time"].replace("Z", "+00:00")
                 )
-            except:
+            except ValueError:
                 pass
         
         if db_instance:
@@ -178,7 +234,7 @@ def sync_instances_to_db(aws_instances: list, db: Session):
             db_instance.private_ip = inst.get("private_ip")
             db_instance.availability_zone = inst.get("availability_zone", "")
             db_instance.launch_time = launch_time
-            db_instance.last_synced = datetime.utcnow()
+            db_instance.last_synced = datetime.now(timezone.utc)
         else:
             # Create new instance record
             db_instance = Instance(
@@ -190,7 +246,7 @@ def sync_instances_to_db(aws_instances: list, db: Session):
                 private_ip=inst.get("private_ip"),
                 availability_zone=inst.get("availability_zone", ""),
                 launch_time=launch_time,
-                last_synced=datetime.utcnow(),
+                last_synced=datetime.now(timezone.utc),
             )
             db.add(db_instance)
     
@@ -325,7 +381,7 @@ def _check_instance_ownership(instance_id: str, user: User) -> bool:
         return True
     
     # For User role, check ownership via CreatedBy tag
-    instance = aws_service.get_instance(instance_id)
+    instance = aws_service.get_instance(instance_id, user.role, user.id)
     if not instance:
         return False
 
@@ -393,7 +449,7 @@ async def get_instance(
         500: AWS API error
     """
     try:
-        instance = aws_service.get_instance(instance_id)
+        instance = aws_service.get_instance(instance_id, current_user.role, current_user.id)
         if not instance:
             raise HTTPException(status_code=404, detail="Instance not found")
         
@@ -458,8 +514,16 @@ async def create_instance(
         result = aws_service.create_instance(
             name=request.name,
             instance_type=request.instance_type,
+            image_id=request.image_id,
             user_id=current_user.id,
             user_email=current_user.email,
+            subnet_id=request.subnet_id,
+            security_group_ids=request.security_group_ids or None,
+            volume_size=request.volume_size,
+            volume_type=request.volume_type,
+            assign_public_ip=request.assign_public_ip,
+            delete_on_termination=request.delete_on_termination,
+            user_role=current_user.role,
         )
         return result
     except Exception as e:
@@ -495,7 +559,7 @@ async def start_instance(
                     detail="You can only start instances you created"
                 )
 
-        return aws_service.start_instance(instance_id)
+        return aws_service.start_instance(instance_id, current_user.role, current_user.id)
     except HTTPException:
         raise
     except Exception as e:
@@ -531,7 +595,7 @@ async def stop_instance(
                     detail="You can only stop instances you created"
                 )
 
-        return aws_service.stop_instance(instance_id)
+        return aws_service.stop_instance(instance_id, current_user.role, current_user.id)
     except HTTPException:
         raise
     except Exception as e:
@@ -567,7 +631,7 @@ async def reboot_instance(
                     detail="You can only reboot instances you created"
                 )
 
-        return aws_service.reboot_instance(instance_id)
+        return aws_service.reboot_instance(instance_id, current_user.role, current_user.id)
     except HTTPException:
         raise
     except Exception as e:
@@ -605,9 +669,27 @@ async def terminate_instance(
                     detail="You can only terminate instances you created"
                 )
 
-        return aws_service.terminate_instance(instance_id)
+        return aws_service.terminate_instance(instance_id, current_user.role, current_user.id)
     except HTTPException:
         raise
+    except Exception as e:
+        _raise_http_for_aws_error(e)
+
+
+# =============================================================================
+# ENDPOINT - Get Launch Options
+# =============================================================================
+@router.get("/launch-options", response_model=LaunchOptionsResponse)
+async def get_launch_options(current_user: User = Depends(get_current_user)):
+    """
+    Get AMI, instance type, VPC, subnet, and security group choices for launch.
+    
+    The frontend uses this endpoint to avoid hardcoding region-specific AMI and
+    network IDs. If CloudSim subnet/security group settings are configured, they
+    are returned as defaults.
+    """
+    try:
+        return aws_service.get_launch_options(current_user.role, current_user.id)
     except Exception as e:
         _raise_http_for_aws_error(e)
 
@@ -659,9 +741,22 @@ async def get_instance_metrics(
         }
     """
     try:
-        metrics = aws_service.get_instance_metrics(instance_id, period_minutes=period)
+        if not _check_instance_ownership(instance_id, current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view metrics for instances you created",
+            )
+
+        metrics = aws_service.get_instance_metrics(
+            instance_id,
+            period_minutes=period,
+            user_role=current_user.role,
+            user_id=current_user.id,
+        )
         persist_metrics_to_db(instance_id, metrics, db)  # save to DB as side effect
         return metrics
+    except HTTPException:
+        raise
     except Exception as e:
         _raise_http_for_aws_error(e)
 
@@ -685,7 +780,19 @@ async def get_current_metrics(
         }
     """
     try:
-        return aws_service.get_instance_current_metrics(instance_id)
+        if not _check_instance_ownership(instance_id, current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view metrics for instances you created",
+            )
+
+        return aws_service.get_instance_current_metrics(
+            instance_id,
+            user_role=current_user.role,
+            user_id=current_user.id,
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         _raise_http_for_aws_error(e)
 
@@ -712,7 +819,11 @@ async def get_daily_costs(
         ]
     """
     try:
-        return aws_service.get_daily_costs(days)
+        return aws_service.get_daily_costs(
+            days,
+            user_role=current_user.role,
+            user_id=current_user.id,
+        )
     except Exception as e:
         _raise_http_for_aws_error(e)
 
@@ -732,6 +843,9 @@ async def get_cost_summary(
         }
     """
     try:
-        return aws_service.get_monthly_summary()
+        return aws_service.get_monthly_summary(
+            user_role=current_user.role,
+            user_id=current_user.id,
+        )
     except Exception as e:
         _raise_http_for_aws_error(e)

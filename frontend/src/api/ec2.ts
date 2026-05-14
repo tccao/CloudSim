@@ -63,6 +63,13 @@ export interface Tag {
 export interface CreateInstanceRequest {
     name: string;
     instance_type: string;
+    image_id?: string;
+    subnet_id?: string;
+    security_group_ids?: string[];
+    volume_size?: number;
+    volume_type?: string;
+    assign_public_ip?: boolean;
+    delete_on_termination?: boolean;
 }
 
 export interface ActionResponse {
@@ -199,6 +206,60 @@ export async function getInstanceTypes(): Promise<string[]> {
     return response.data.instance_types;
 }
 
+export interface AmiOption {
+    id: string;
+    name: string;
+    description: string;
+    architecture: string;
+}
+
+export interface VpcOption {
+    id: string;
+    name: string;
+    is_default: boolean;
+}
+
+export interface SubnetOption {
+    id: string;
+    name: string;
+    vpc_id: string;
+    availability_zone: string;
+    default_for_az: boolean;
+}
+
+export interface SecurityGroupOption {
+    id: string;
+    name: string;
+    vpc_id: string | null;
+    description: string;
+}
+
+export interface LaunchDefaults {
+    instance_type: string;
+    ami_id: string | null;
+    vpc_id: string | null;
+    subnet_id: string | null;
+    security_group_id: string | null;
+    volume_size: number;
+    volume_type: string;
+    assign_public_ip: boolean;
+    delete_on_termination: boolean;
+}
+
+export interface LaunchOptions {
+    instance_types: string[];
+    amis: AmiOption[];
+    vpcs: VpcOption[];
+    subnets: SubnetOption[];
+    security_groups: SecurityGroupOption[];
+    defaults: LaunchDefaults;
+}
+
+export async function getLaunchOptions(): Promise<LaunchOptions> {
+    const response = await api.get<LaunchOptions>('/api/ec2/launch-options');
+    return response.data;
+}
+
 
 // =============================================================================
 // SECTION 4: CLOUDWATCH METRICS
@@ -333,5 +394,4 @@ export async function getCostSummary(): Promise<CostSummary> {
 //   admin@gmail.com / admin123 (Admin)
 //   deng@gmail.com / deng123 (DevOps Engineer)
 //   user@gmail.com / user123 (User)
-
 

@@ -35,6 +35,7 @@ from botocore.exceptions import (
     NoCredentialsError,
     PartialCredentialsError,
 )
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from .config import settings
@@ -118,13 +119,12 @@ def _get_boto3_session() -> boto3.Session:
 # Create session and default clients (used when role-based access is disabled)
 _session = _get_boto3_session()
 ec2 = _session.client("ec2")
-ec2_resource = _session.resource("ec2")
 
 
 # =============================================================================
 # ROLE-BASED CLIENT FACTORIES
 # =============================================================================
-def get_ec2_client_for_user(user_role: str, user_id: int):
+def get_ec2_client_for_user(user_role: Optional[str] = None, user_id: Optional[int] = None):
     """
     Get EC2 client based on user role.
     
@@ -138,7 +138,7 @@ def get_ec2_client_for_user(user_role: str, user_id: int):
     Returns:
         boto3 EC2 client
     """
-    if settings.enable_role_based_access:
+    if settings.enable_role_based_access and user_role and user_id is not None:
         from .aws_role_manager import get_aws_client_for_user
         role_client = get_aws_client_for_user('ec2', user_role, user_id)
         if role_client:
@@ -148,7 +148,7 @@ def get_ec2_client_for_user(user_role: str, user_id: int):
     return ec2
 
 
-def get_cloudwatch_client_for_user(user_role: str, user_id: int):
+def get_cloudwatch_client_for_user(user_role: Optional[str] = None, user_id: Optional[int] = None):
     """
     Get CloudWatch client based on user role.
     
@@ -159,7 +159,7 @@ def get_cloudwatch_client_for_user(user_role: str, user_id: int):
     Returns:
         boto3 CloudWatch client
     """
-    if settings.enable_role_based_access:
+    if settings.enable_role_based_access and user_role and user_id is not None:
         from .aws_role_manager import get_aws_client_for_user
         role_client = get_aws_client_for_user('cloudwatch', user_role, user_id)
         if role_client:
@@ -168,7 +168,7 @@ def get_cloudwatch_client_for_user(user_role: str, user_id: int):
     return cloudwatch
 
 
-def get_cost_explorer_client_for_user(user_role: str, user_id: int):
+def get_cost_explorer_client_for_user(user_role: Optional[str] = None, user_id: Optional[int] = None):
     """
     Get Cost Explorer client based on user role.
     
@@ -179,7 +179,7 @@ def get_cost_explorer_client_for_user(user_role: str, user_id: int):
     Returns:
         boto3 Cost Explorer client
     """
-    if settings.enable_role_based_access:
+    if settings.enable_role_based_access and user_role and user_id is not None:
         from .aws_role_manager import get_aws_client_for_user
         role_client = get_aws_client_for_user('ce', user_role, user_id)
         if role_client:
@@ -248,7 +248,11 @@ def list_instances(user_role: Optional[str] = None, user_id: Optional[int] = Non
 # =============================================================================
 # EC2 OPERATIONS - Get Instance Details
 # =============================================================================
-def get_instance(instance_id: str) -> Optional[dict]:
+def get_instance(
+    instance_id: str,
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> Optional[dict]:
     """
     Get detailed information for a specific EC2 instance.
     
@@ -264,7 +268,8 @@ def get_instance(instance_id: str) -> Optional[dict]:
         Exception: If AWS API call fails
     """
     try:
-        response = ec2.describe_instances(InstanceIds=[instance_id])
+        client = get_ec2_client_for_user(user_role, user_id)
+        response = client.describe_instances(InstanceIds=[instance_id])
         
         for reservation in response.get("Reservations", []):
             for instance in reservation.get("Instances", []):
@@ -286,7 +291,7 @@ def get_instance(instance_id: str) -> Optional[dict]:
                 
                 if volume_ids:
                     try:
-                        vol_response = ec2.describe_volumes(VolumeIds=volume_ids)
+                        vol_response = client.describe_volumes(VolumeIds=volume_ids)
                         for vol in vol_response.get("Volumes", []):
                             # Find matching device name
                             device_name = "N/A"
@@ -355,7 +360,11 @@ def get_instance(instance_id: str) -> Optional[dict]:
 # =============================================================================
 # EC2 OPERATIONS - Instance Lifecycle
 # =============================================================================
-def start_instance(instance_id: str) -> dict:
+def start_instance(
+    instance_id: str,
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> dict:
     """
     Start a stopped EC2 instance.
     
@@ -366,13 +375,18 @@ def start_instance(instance_id: str) -> dict:
         Action response with message and instance_id
     """
     try:
-        ec2.start_instances(InstanceIds=[instance_id])
+        client = get_ec2_client_for_user(user_role, user_id)
+        client.start_instances(InstanceIds=[instance_id])
         return {"message": f"Starting instance {instance_id}", "instance_id": instance_id}
     except Exception as e:
         _handle_aws_exception("Failed to start instance", e)
 
 
-def stop_instance(instance_id: str) -> dict:
+def stop_instance(
+    instance_id: str,
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> dict:
     """
     Stop a running EC2 instance.
     
@@ -383,13 +397,18 @@ def stop_instance(instance_id: str) -> dict:
         Action response with message and instance_id
     """
     try:
-        ec2.stop_instances(InstanceIds=[instance_id])
+        client = get_ec2_client_for_user(user_role, user_id)
+        client.stop_instances(InstanceIds=[instance_id])
         return {"message": f"Stopping instance {instance_id}", "instance_id": instance_id}
     except Exception as e:
         _handle_aws_exception("Failed to stop instance", e)
 
 
-def reboot_instance(instance_id: str) -> dict:
+def reboot_instance(
+    instance_id: str,
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> dict:
     """
     Reboot an EC2 instance.
     
@@ -400,13 +419,18 @@ def reboot_instance(instance_id: str) -> dict:
         Action response with message and instance_id
     """
     try:
-        ec2.reboot_instances(InstanceIds=[instance_id])
+        client = get_ec2_client_for_user(user_role, user_id)
+        client.reboot_instances(InstanceIds=[instance_id])
         return {"message": f"Rebooting instance {instance_id}", "instance_id": instance_id}
     except Exception as e:
         _handle_aws_exception("Failed to reboot instance", e)
 
 
-def terminate_instance(instance_id: str) -> dict:
+def terminate_instance(
+    instance_id: str,
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> dict:
     """
     Terminate (permanently delete) an EC2 instance.
     
@@ -419,7 +443,8 @@ def terminate_instance(instance_id: str) -> dict:
         Action response with message and instance_id
     """
     try:
-        ec2.terminate_instances(InstanceIds=[instance_id])
+        client = get_ec2_client_for_user(user_role, user_id)
+        client.terminate_instances(InstanceIds=[instance_id])
         return {"message": f"Terminating instance {instance_id}", "instance_id": instance_id}
     except Exception as e:
         _handle_aws_exception("Failed to terminate instance", e)
@@ -428,14 +453,59 @@ def terminate_instance(instance_id: str) -> dict:
 # =============================================================================
 # EC2 OPERATIONS - Create Instance
 # =============================================================================
+def _tag_value(tags: list[dict], key: str, default: str = "") -> str:
+    """Return a tag value from an AWS tag list."""
+    for tag in tags:
+        if tag.get("Key") == key:
+            return tag.get("Value", default)
+    return default
+
+
+def _find_latest_image(client, owners: list[str], filters: list[dict]) -> Optional[dict]:
+    """Find the newest available AMI matching the provided filters."""
+    response = client.describe_images(Owners=owners, Filters=filters)
+    images = sorted(response.get("Images", []), key=lambda x: x["CreationDate"], reverse=True)
+    return images[0] if images else None
+
+
+def _resolve_image(client, image_id: Optional[str]) -> tuple[str, str]:
+    """Resolve the AMI ID and root device name used for block-device overrides."""
+    if image_id:
+        response = client.describe_images(ImageIds=[image_id])
+        images = response.get("Images", [])
+        if not images:
+            raise AWSServiceError(f"AMI {image_id} was not found")
+        image = images[0]
+    else:
+        image = _find_latest_image(
+            client,
+            owners=["amazon"],
+            filters=[
+                {"Name": "name", "Values": ["al2023-ami-*-x86_64"]},
+                {"Name": "architecture", "Values": ["x86_64"]},
+                {"Name": "root-device-type", "Values": ["ebs"]},
+                {"Name": "state", "Values": ["available"]},
+            ],
+        )
+        if not image:
+            raise AWSServiceError("No suitable Amazon Linux 2023 AMI found")
+
+    return image["ImageId"], image.get("RootDeviceName", "/dev/xvda")
+
+
 def create_instance(
     name: str,
     instance_type: str = "t2.micro",
-    image_id: str = None,
-    user_id: int = None,
-    user_email: str = None,
-    subnet_id: str = None,
-    security_group_ids: list = None,
+    image_id: Optional[str] = None,
+    user_id: Optional[int] = None,
+    user_email: Optional[str] = None,
+    subnet_id: Optional[str] = None,
+    security_group_ids: Optional[list[str]] = None,
+    volume_size: int = 8,
+    volume_type: str = "gp3",
+    assign_public_ip: bool = True,
+    delete_on_termination: bool = True,
+    user_role: Optional[str] = None,
 ) -> dict:
     """
     Create a new EC2 instance.
@@ -454,6 +524,11 @@ def create_instance(
         user_email: CloudSim user email for auditing
         subnet_id: VPC subnet to launch in (defaults from config)
         security_group_ids: Security groups to attach (defaults from config)
+        volume_size: Root EBS volume size in GiB
+        volume_type: Root EBS volume type
+        assign_public_ip: Whether to request a public IP on the primary ENI
+        delete_on_termination: Whether the root volume is deleted on termination
+        user_role: CloudSim user role for optional role-based AWS access
         
     Returns:
         Action response with instance_id and details
@@ -461,71 +536,74 @@ def create_instance(
     Raises:
         Exception: If no suitable AMI found or AWS API fails
     """
-    # Get latest Amazon Linux 2023 AMI if not specified
-    if not image_id:
-        response = ec2.describe_images(
-            Owners=["amazon"],
-            Filters=[
-                {"Name": "name", "Values": ["al2023-ami-*-x86_64"]},
-                {"Name": "state", "Values": ["available"]},
-            ],
-        )
-        images = sorted(response["Images"], key=lambda x: x["CreationDate"], reverse=True)
-        if images:
-            image_id = images[0]["ImageId"]
-        else:
-            raise Exception("No suitable AMI found")
-    
-    # Use CloudSim VPC settings if configured
-    if not subnet_id and settings.cloudsim_subnet_id:
-        subnet_id = settings.cloudsim_subnet_id
-    
-    if not security_group_ids and settings.cloudsim_security_group_id:
-        security_group_ids = [settings.cloudsim_security_group_id]
-    
-    # Build tags for ownership tracking
-    tags = [{"Key": "Name", "Value": name}]
-    
-    if user_id is not None:
-        tags.append({"Key": "CreatedBy", "Value": str(user_id)})
-    
-    if user_email:
-        tags.append({"Key": "CreatedByEmail", "Value": user_email})
-    
-    tags.append({"Key": "ManagedBy", "Value": "CloudSim"})
-    
-    # Build launch parameters
-    launch_params = {
-        "ImageId": image_id,
-        "InstanceType": instance_type,
-        "MinCount": 1,
-        "MaxCount": 1,
-        "TagSpecifications": [
-            {
-                "ResourceType": "instance",
-                "Tags": tags,
-            }
-        ],
-    }
-    
-    # Add VPC settings if configured
-    if subnet_id:
-        launch_params["SubnetId"] = subnet_id
-    
-    if security_group_ids:
-        launch_params["SecurityGroupIds"] = security_group_ids
-    
     try:
-        response = ec2_resource.create_instances(**launch_params)
-        
-        instance = response[0]
+        client = get_ec2_client_for_user(user_role, user_id)
+        image_id, root_device_name = _resolve_image(client, image_id)
+
+        # Use CloudSim VPC settings if configured and not overridden by the UI
+        if not subnet_id and settings.cloudsim_subnet_id:
+            subnet_id = settings.cloudsim_subnet_id
+
+        if not security_group_ids and settings.cloudsim_security_group_id:
+            security_group_ids = [settings.cloudsim_security_group_id]
+
+        tags = [{"Key": "Name", "Value": name}]
+
+        if user_id is not None:
+            tags.append({"Key": "CreatedBy", "Value": str(user_id)})
+
+        if user_email:
+            tags.append({"Key": "CreatedByEmail", "Value": user_email})
+
+        tags.append({"Key": "ManagedBy", "Value": "CloudSim"})
+
+        launch_params = {
+            "ImageId": image_id,
+            "InstanceType": instance_type,
+            "MinCount": 1,
+            "MaxCount": 1,
+            "BlockDeviceMappings": [
+                {
+                    "DeviceName": root_device_name,
+                    "Ebs": {
+                        "VolumeSize": volume_size,
+                        "VolumeType": volume_type,
+                        "DeleteOnTermination": delete_on_termination,
+                    },
+                }
+            ],
+            "TagSpecifications": [
+                {"ResourceType": "instance", "Tags": tags},
+                {"ResourceType": "volume", "Tags": tags},
+            ],
+        }
+
+        if subnet_id:
+            network_interface = {
+                "DeviceIndex": 0,
+                "SubnetId": subnet_id,
+                "AssociatePublicIpAddress": assign_public_ip,
+            }
+            if security_group_ids:
+                network_interface["Groups"] = security_group_ids
+            launch_params["NetworkInterfaces"] = [network_interface]
+        elif security_group_ids:
+            launch_params["SecurityGroupIds"] = security_group_ids
+
+        response = client.run_instances(**launch_params)
+        instance = response["Instances"][0]
+        instance_id = instance["InstanceId"]
+
         return {
-            "message": f"Created instance {instance.id}",
-            "instance_id": instance.id,
+            "message": f"Created instance {instance_id}",
+            "instance_id": instance_id,
             "name": name,
             "instance_type": instance_type,
+            "image_id": image_id,
             "subnet_id": subnet_id,
             "security_group_ids": security_group_ids,
+            "volume_size": volume_size,
+            "volume_type": volume_type,
         }
     except Exception as e:
         _handle_aws_exception("Failed to create instance", e)
@@ -552,13 +630,150 @@ def get_available_instance_types() -> list[str]:
     ]
 
 
+def get_launch_options(
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> dict:
+    """
+    Return launch wizard options from AWS/config instead of hardcoded UI values.
+
+    AMIs are resolved to the latest matching image in the configured region.
+    Network options prefer CloudSim-specific config values when present.
+    """
+    try:
+        client = get_ec2_client_for_user(user_role, user_id)
+
+        ami_queries = [
+            (
+                "Amazon Linux 2023 AMI",
+                ["amazon"],
+                [
+                    {"Name": "name", "Values": ["al2023-ami-*-x86_64"]},
+                    {"Name": "architecture", "Values": ["x86_64"]},
+                    {"Name": "root-device-type", "Values": ["ebs"]},
+                    {"Name": "state", "Values": ["available"]},
+                ],
+            ),
+            (
+                "Ubuntu Server 22.04 LTS",
+                ["099720109477"],
+                [
+                    {"Name": "name", "Values": ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]},
+                    {"Name": "architecture", "Values": ["x86_64"]},
+                    {"Name": "root-device-type", "Values": ["ebs"]},
+                    {"Name": "state", "Values": ["available"]},
+                ],
+            ),
+            (
+                "Windows Server 2022 Base",
+                ["amazon"],
+                [
+                    {"Name": "name", "Values": ["Windows_Server-2022-English-Full-Base-*"]},
+                    {"Name": "root-device-type", "Values": ["ebs"]},
+                    {"Name": "state", "Values": ["available"]},
+                ],
+            ),
+        ]
+
+        amis = []
+        for name, owners, filters in ami_queries:
+            image = _find_latest_image(client, owners, filters)
+            if image:
+                amis.append({
+                    "id": image["ImageId"],
+                    "name": name,
+                    "description": image.get("Description") or image.get("Name", ""),
+                    "architecture": image.get("Architecture", "x86_64"),
+                })
+
+        if settings.cloudsim_vpc_id:
+            vpc_response = client.describe_vpcs(VpcIds=[settings.cloudsim_vpc_id])
+        else:
+            vpc_response = client.describe_vpcs(Filters=[{"Name": "is-default", "Values": ["true"]}])
+            if not vpc_response.get("Vpcs"):
+                vpc_response = client.describe_vpcs()
+
+        vpcs = [
+            {
+                "id": vpc["VpcId"],
+                "name": _tag_value(vpc.get("Tags", []), "Name", vpc["VpcId"]),
+                "is_default": vpc.get("IsDefault", False),
+            }
+            for vpc in vpc_response.get("Vpcs", [])[:20]
+        ]
+        vpc_ids = [vpc["id"] for vpc in vpcs]
+
+        if settings.cloudsim_subnet_id:
+            subnet_response = client.describe_subnets(SubnetIds=[settings.cloudsim_subnet_id])
+        elif vpc_ids:
+            subnet_response = client.describe_subnets(Filters=[{"Name": "vpc-id", "Values": vpc_ids}])
+        else:
+            subnet_response = {"Subnets": []}
+
+        subnets = [
+            {
+                "id": subnet["SubnetId"],
+                "name": _tag_value(subnet.get("Tags", []), "Name", subnet["SubnetId"]),
+                "vpc_id": subnet["VpcId"],
+                "availability_zone": subnet.get("AvailabilityZone", ""),
+                "default_for_az": subnet.get("DefaultForAz", False),
+            }
+            for subnet in subnet_response.get("Subnets", [])[:50]
+        ]
+
+        if settings.cloudsim_security_group_id:
+            sg_response = client.describe_security_groups(GroupIds=[settings.cloudsim_security_group_id])
+        elif vpc_ids:
+            sg_response = client.describe_security_groups(Filters=[{"Name": "vpc-id", "Values": vpc_ids}])
+        else:
+            sg_response = {"SecurityGroups": []}
+
+        security_groups = [
+            {
+                "id": sg["GroupId"],
+                "name": sg.get("GroupName", sg["GroupId"]),
+                "vpc_id": sg.get("VpcId"),
+                "description": sg.get("Description", ""),
+            }
+            for sg in sg_response.get("SecurityGroups", [])[:50]
+        ]
+
+        return {
+            "instance_types": get_available_instance_types(),
+            "amis": amis,
+            "vpcs": vpcs,
+            "subnets": subnets,
+            "security_groups": security_groups,
+            "defaults": {
+                "instance_type": "t2.micro",
+                "ami_id": amis[0]["id"] if amis else None,
+                "vpc_id": settings.cloudsim_vpc_id or (vpcs[0]["id"] if vpcs else None),
+                "subnet_id": settings.cloudsim_subnet_id or (subnets[0]["id"] if subnets else None),
+                "security_group_id": settings.cloudsim_security_group_id or (
+                    security_groups[0]["id"] if security_groups else None
+                ),
+                "volume_size": 8,
+                "volume_type": "gp3",
+                "assign_public_ip": True,
+                "delete_on_termination": True,
+            },
+        }
+    except Exception as e:
+        _handle_aws_exception("Failed to load launch options", e)
+
+
 # =============================================================================
 # CLOUDWATCH METRICS
 # =============================================================================
 cloudwatch = _session.client("cloudwatch")
 
 
-def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
+def get_instance_metrics(
+    instance_id: str,
+    period_minutes: int = 60,
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> dict:
     """
     Get CloudWatch metrics history for an EC2 instance.
     
@@ -576,15 +791,14 @@ def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
     Returns:
         Dict with metric arrays, each containing {timestamp, value} objects
     """
-    from datetime import datetime, timedelta
-    
-    end_time = datetime.utcnow()
+    client = get_cloudwatch_client_for_user(user_role, user_id)
+    end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(minutes=period_minutes)
     
     def get_metric(metric_name: str, unit: str = "Percent") -> list:
         """Fetch a single metric from CloudWatch."""
         try:
-            response = cloudwatch.get_metric_statistics(
+            response = client.get_metric_statistics(
                 Namespace="AWS/EC2",
                 MetricName=metric_name,
                 Dimensions=[{"Name": "InstanceId", "Value": instance_id}],
@@ -616,7 +830,11 @@ def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
     }
 
 
-def get_instance_current_metrics(instance_id: str) -> dict:
+def get_instance_current_metrics(
+    instance_id: str,
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> dict:
     """
     Get current (latest) metrics for an EC2 instance.
     
@@ -629,7 +847,12 @@ def get_instance_current_metrics(instance_id: str) -> dict:
     Returns:
         Dict with cpu_percent, network_in_bytes, network_out_bytes
     """
-    metrics = get_instance_metrics(instance_id, period_minutes=15)
+    metrics = get_instance_metrics(
+        instance_id,
+        period_minutes=15,
+        user_role=user_role,
+        user_id=user_id,
+    )
     
     def get_latest(data: list) -> float:
         """Get the last value from a metric array."""
@@ -650,7 +873,24 @@ def get_instance_current_metrics(instance_id: str) -> dict:
 cost_explorer = _session.client("ce", region_name="us-east-1")
 
 
-def get_daily_costs(days: int = 7) -> list[dict]:
+def _cost_filter_for_user(user_role: Optional[str], user_id: Optional[int]) -> Optional[dict]:
+    """Return a Cost Explorer filter limiting regular users to their own tags."""
+    if user_role == "User" and user_id is not None:
+        return {
+            "Tags": {
+                "Key": "CreatedBy",
+                "Values": [str(user_id)],
+                "MatchOptions": ["EQUALS"],
+            }
+        }
+    return None
+
+
+def get_daily_costs(
+    days: int = 7,
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> list[dict]:
     """
     Get daily cost breakdown for the last N days.
     
@@ -665,23 +905,32 @@ def get_daily_costs(days: int = 7) -> list[dict]:
     Returns:
         List of daily cost dicts: {date, compute, storage, network, total}
     """
-    from datetime import datetime, timedelta
-    
-    end_date = datetime.utcnow().date()
+    if not settings.enable_cost_explorer:
+        raise AWSConfigurationError(
+            "Cost Explorer integration is disabled. Set ENABLE_COST_EXPLORER=true to enable it."
+        )
+
+    end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=days)
     
     try:
-        response = cost_explorer.get_cost_and_usage(
-            TimePeriod={
+        client = get_cost_explorer_client_for_user(user_role, user_id)
+        request = {
+            "TimePeriod": {
                 "Start": start_date.isoformat(),
                 "End": end_date.isoformat(),
             },
-            Granularity="DAILY",
-            Metrics=["BlendedCost"],
-            GroupBy=[
+            "Granularity": "DAILY",
+            "Metrics": ["BlendedCost"],
+            "GroupBy": [
                 {"Type": "DIMENSION", "Key": "SERVICE"}
             ],
-        )
+        }
+        cost_filter = _cost_filter_for_user(user_role, user_id)
+        if cost_filter:
+            request["Filter"] = cost_filter
+
+        response = client.get_cost_and_usage(**request)
         
         daily_costs = []
         for result in response.get("ResultsByTime", []):
@@ -717,7 +966,10 @@ def get_daily_costs(days: int = 7) -> list[dict]:
         _handle_aws_exception("Failed to fetch daily costs", e)
 
 
-def get_monthly_summary() -> dict:
+def get_monthly_summary(
+    user_role: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> dict:
     """
     Get current month's cost summary with projection.
     
@@ -729,20 +981,29 @@ def get_monthly_summary() -> dict:
     Returns:
         Cost summary dict
     """
-    from datetime import datetime
-    
-    today = datetime.utcnow().date()
+    if not settings.enable_cost_explorer:
+        raise AWSConfigurationError(
+            "Cost Explorer integration is disabled. Set ENABLE_COST_EXPLORER=true to enable it."
+        )
+
+    today = datetime.now(timezone.utc).date()
     month_start = today.replace(day=1)
     
     try:
-        response = cost_explorer.get_cost_and_usage(
-            TimePeriod={
+        client = get_cost_explorer_client_for_user(user_role, user_id)
+        request = {
+            "TimePeriod": {
                 "Start": month_start.isoformat(),
                 "End": today.isoformat(),
             },
-            Granularity="MONTHLY",
-            Metrics=["BlendedCost"],
-        )
+            "Granularity": "MONTHLY",
+            "Metrics": ["BlendedCost"],
+        }
+        cost_filter = _cost_filter_for_user(user_role, user_id)
+        if cost_filter:
+            request["Filter"] = cost_filter
+
+        response = client.get_cost_and_usage(**request)
         
         total = 0.0
         for result in response.get("ResultsByTime", []):

@@ -20,6 +20,13 @@ export interface Instance {
 export interface InstanceCreate {
     name: string;
     instance_type: string;
+    image_id?: string;
+    subnet_id?: string;
+    security_group_ids?: string[];
+    volume_size?: number;
+    volume_type?: string;
+    assign_public_ip?: boolean;
+    delete_on_termination?: boolean;
 }
 
 // Map instance type to CPU/Memory specs
@@ -69,6 +76,13 @@ export const createInstance = async (data: InstanceCreate): Promise<Instance> =>
     const result = await ec2Api.createInstance({
         name: data.name,
         instance_type: data.instance_type,
+        image_id: data.image_id,
+        subnet_id: data.subnet_id,
+        security_group_ids: data.security_group_ids,
+        volume_size: data.volume_size,
+        volume_type: data.volume_type,
+        assign_public_ip: data.assign_public_ip,
+        delete_on_termination: data.delete_on_termination,
     });
 
     // Get specs for the instance type

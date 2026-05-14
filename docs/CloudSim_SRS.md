@@ -71,7 +71,7 @@ CloudSim is a fullstack web application with:
 ### 2.2 User Classes & Characteristics
 | Role | Permissions |
 |------|-------------|
-| **User** | Launch instances, manage (start/stop/reboot/terminate) own instances, view own CloudWatch metrics. No Cost Explorer, no quota modification, no user management. |
+| **User** | Launch instances, manage (start/stop/reboot/terminate) own instances, view own CloudWatch metrics and Cost Explorer data filtered to resources tagged with their user ID. No quota modification or user management. |
 | **DevOps Engineer** | Full EC2 lifecycle on any instance, CloudWatch, Cost Explorer, configure auto-scaling and notifications. View-only quotas. No user management. |
 | **Admin** | All DevOps permissions, plus full user CRUD and modifiable resource quotas. |
 
@@ -117,6 +117,7 @@ CloudSim is a fullstack web application with:
 | As a | I want to | So that I can | Acceptance Criteria |
 |------|-----------|---------------|---------------------|
 | User | View metrics for my own instances | Catch performance issues early | CPU / Network / Disk charts render via CloudWatch |
+| User | View cost breakdown for my own resources | Track spend from workloads I launched | Cost Explorer data is filtered by the `CreatedBy` cost allocation tag |
 | DevOps Engineer | View metrics for any instance | Monitor team performance | Instance dropdown lists all instances; charts update on selection |
 | DevOps Engineer | View cost breakdown | Track spending | Daily and monthly Cost Explorer data displayed |
 | Admin | Retain historical metrics in our DB | Run trend analysis offline | Each fetch persists datapoints to the `metrics` table |
@@ -238,7 +239,7 @@ Response: {
 - **FR-10:** Fetch CloudWatch metrics (CPU, NetworkIn, NetworkOut, DiskReadOps, DiskWriteOps) for instances
 - **FR-11:** Display CPU utilization, network, and disk I/O charts (Recharts)
 - **FR-12:** Persist each CloudWatch datapoint to the local `metrics` table on fetch (idempotent)
-- **FR-13:** Display Cost Explorer data — daily breakdown and current-month projection
+- **FR-13:** Display Cost Explorer data — daily breakdown and current-month projection; `User` results are filtered to resources tagged with their CloudSim user ID
 
 ### 5.4 System Management (Epic 4)
 - **FR-14:** User authentication with JWT (HS256, 30-minute TTL) and bcrypt password hashing
@@ -288,16 +289,17 @@ Base URL (dev): `http://localhost:8000`
 | POST | `/api/ec2/instances/{id}/stop` | Stop instance |
 | POST | `/api/ec2/instances/{id}/reboot` | Reboot instance |
 | DELETE | `/api/ec2/instances/{id}` | Terminate instance |
+| GET | `/api/ec2/launch-options` | List current AMI, instance type, VPC, subnet, and security group launch choices |
 | GET | `/api/ec2/instance-types` | List available instance types |
 
 **Metrics & Costs — `/api/ec2`**
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/ec2/instances/{id}/metrics` | CloudWatch history (CPU, Network, Disk) — also persisted to DB |
-| GET | `/api/ec2/instances/{id}/metrics/current` | Latest single-point metrics for dashboard cards |
-| GET | `/api/ec2/costs/daily` | Daily cost breakdown for last N days |
-| GET | `/api/ec2/costs/summary` | Month-to-date spend and projected monthly total |
+| GET | `/api/ec2/instances/{id}/metrics` | CloudWatch history (CPU, Network, Disk) — ownership-filtered for `User`, also persisted to DB |
+| GET | `/api/ec2/instances/{id}/metrics/current` | Latest single-point metrics for dashboard cards — ownership-filtered for `User` |
+| GET | `/api/ec2/costs/daily` | Daily cost breakdown for last N days; `User` results are filtered by the `CreatedBy` tag |
+| GET | `/api/ec2/costs/summary` | Month-to-date spend and projected monthly total; `User` results are filtered by the `CreatedBy` tag |
 
 **Admin — `/api/admin` (Admin role required)**
 
@@ -471,9 +473,9 @@ See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered fl
 **Output:** User table updated; new accounts can immediately log in
 
 ### UC-7: Track Spend
-**Trigger:** Admin or DevOps Engineer opens Monitoring → Cost tab
+**Trigger:** User, DevOps Engineer, or Admin opens Monitoring → Cost tab
 **Flow:** Fetch `/api/ec2/costs/daily` and `/api/ec2/costs/summary` from Cost Explorer
-**Output:** Daily breakdown chart and month-to-date / projected total
+**Output:** Daily breakdown chart and month-to-date / projected total; `User` output is filtered to their own `CreatedBy` tag
 
 ---
 
@@ -486,7 +488,7 @@ See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered fl
 - [x] **AC-5:** Admin and DevOps can act on any instance; Users are restricted to instances they created (via `CreatedBy` tag)
 - [x] **AC-6:** Monitoring page shows CloudWatch CPU, Network, and Disk I/O charts
 - [x] **AC-7:** Each CloudWatch fetch persists datapoints to the `metrics` table (idempotent)
-- [x] **AC-8:** Cost Explorer integration shows daily breakdown and monthly projection
+- [x] **AC-8:** Cost Explorer integration shows daily breakdown and monthly projection, with `User` results filtered to their own resources
 - [x] **AC-9:** Admin can create, update, and delete users through `/api/admin/users`
 - [x] **AC-10:** All API endpoints require authentication; role checks enforced server-side
 - [x] **AC-11:** Error states surface clear toasts with appropriate HTTP status codes

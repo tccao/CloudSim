@@ -169,6 +169,11 @@ def test_me_invalid_token_returns_401(client):
     assert r.status_code == 401
 
 
+def test_me_inactive_user_token_returns_403(client, inactive_headers):
+    r = client.get("/api/auth/me", headers=inactive_headers)
+    assert r.status_code == 403
+
+
 def test_expired_token_me_returns_401(client):
     # Creates a token that is already expired at creation time.
     # Tests the expiry enforcement end-to-end through the full HTTP path.
