@@ -1,4 +1,7 @@
 import pytest
+from datetime import datetime, timezone
+
+from app import aws_service as real_aws_service
 from app.aws_service import AWSServiceError
 
 pytestmark = pytest.mark.api
@@ -80,6 +83,38 @@ def test_cost_summary_values_pass_through(client, admin_headers, mock_aws_servic
     assert data["month_to_date"] == 45.0
     assert data["projected_monthly"] == 90.0
     assert data["days_elapsed"] == 15
+
+
+@pytest.mark.unit
+def test_cost_summary_projection_math(monkeypatch):
+    # The route only returns get_monthly_summary(); the projection formula lives
+    # in aws_service.py, so this patches the Cost Explorer client directly.
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2024, 1, 16, tzinfo=timezone.utc)
+
+    class FakeCostExplorerClient:
+        def get_cost_and_usage(self, **request):
+            return {
+                "ResultsByTime": [
+                    {"Total": {"BlendedCost": {"Amount": "45.0"}}}
+                ]
+            }
+
+    monkeypatch.setattr(real_aws_service.settings, "enable_cost_explorer", True)
+    monkeypatch.setattr(real_aws_service, "datetime", FrozenDateTime)
+    monkeypatch.setattr(
+        real_aws_service,
+        "get_cost_explorer_client_for_user",
+        lambda user_role=None, user_id=None: FakeCostExplorerClient(),
+    )
+
+    data = real_aws_service.get_monthly_summary()
+
+    assert data["month_to_date"] == 45.0
+    assert data["days_elapsed"] == 15
+    assert data["projected_monthly"] == 90.0
 
 
 def test_cost_summary_aws_error_returns_502(client, admin_headers, mock_aws_service):
