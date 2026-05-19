@@ -21,13 +21,15 @@
 # =============================================================================
 
 import pytest
+import asyncio
+import httpx
+import anyio.to_thread
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # WHY these specific imports?
@@ -41,6 +43,48 @@ from app.db import Base, get_db
 from app.main import app
 from app.models import User
 from app.auth import get_password_hash, create_access_token
+
+
+async def _run_sync_inline(func, *args, abandon_on_cancel=False, cancellable=None, limiter=None):
+    """Run sync FastAPI endpoints inline during tests.
+
+    The sandbox used for these tests can hang when AnyIO offloads sync route
+    functions to worker threads. Production code is unchanged; only tests use
+    this inline runner.
+    """
+    return func(*args)
+
+
+anyio.to_thread.run_sync = _run_sync_inline
+
+
+class SyncASGIClient:
+    """Small sync wrapper around httpx.AsyncClient + ASGITransport."""
+
+    def __init__(self, app):
+        self._transport = httpx.ASGITransport(app=app)
+        self._client = httpx.AsyncClient(
+            transport=self._transport,
+            base_url="http://testserver",
+        )
+
+    def request(self, method: str, url: str, **kwargs):
+        return asyncio.run(self._client.request(method, url, **kwargs))
+
+    def get(self, url: str, **kwargs):
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url: str, **kwargs):
+        return self.request("POST", url, **kwargs)
+
+    def put(self, url: str, **kwargs):
+        return self.request("PUT", url, **kwargs)
+
+    def delete(self, url: str, **kwargs):
+        return self.request("DELETE", url, **kwargs)
+
+    def close(self):
+        asyncio.run(self._client.aclose())
 
 
 # =============================================================================
@@ -143,8 +187,11 @@ def client(db_session):
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
+    c = SyncASGIClient(app)
+    try:
         yield c
+    finally:
+        c.close()
     # Clean up: remove the override so it doesn't leak to other tests
     app.dependency_overrides.clear()
 

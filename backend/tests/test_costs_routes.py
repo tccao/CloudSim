@@ -21,7 +21,7 @@ def test_daily_costs_all_roles_return_200(request, client, headers_fixture, mock
 def test_daily_costs_unauthenticated_returns_401(client):
     assert client.get("/api/ec2/costs/daily").status_code == 401
 
-def test_daily_costs_response_is_list(client, admin_headers):
+def test_daily_costs_response_is_list(client, admin_headers, mock_aws_service):
     # The route returns aws_service.get_daily_costs(...) directly. The fixture's
     # default mocked value is [], so the API contract should still be a JSON list.
     r = client.get("/api/ec2/costs/daily", headers=admin_headers)
@@ -55,7 +55,7 @@ def test_daily_costs_aws_error_returns_502(client, admin_headers, mock_aws_servi
 # =============================================================================
 
 @pytest.mark.parametrize("headers_fixture", ["admin_headers", "devops_headers", "user_headers"])
-def test_cost_summary_all_roles_return_200(request, client, headers_fixture):
+def test_cost_summary_all_roles_return_200(request, client, headers_fixture, mock_aws_service):
     headers = request.getfixturevalue(headers_fixture)
     assert client.get("/api/ec2/costs/summary", headers=headers).status_code == 200
 
@@ -64,7 +64,7 @@ def test_cost_summary_unauthenticated_returns_401(client):
     assert client.get("/api/ec2/costs/summary").status_code == 401
 
 
-def test_cost_summary_response_shape(client, admin_headers):
+def test_cost_summary_response_shape(client, admin_headers, mock_aws_service):
     r = client.get("/api/ec2/costs/summary", headers=admin_headers)
     data = r.json()
     assert "month_to_date" in data
