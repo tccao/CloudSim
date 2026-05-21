@@ -2,13 +2,15 @@
 
 ## Context
 
-CloudSim has a complete, working FastAPI + SQLAlchemy + boto3 backend with zero test coverage.
-A broken `conftest.py` (syntax error on line 50) and missing test libraries are the only blockers.
-This plan builds a ~119-test suite from scratch, structured as a **pair coding session** that
-teaches the WHY behind each decision — not just what to write.
+CloudSim now has a working FastAPI + SQLAlchemy + boto3 backend test suite covering
+unit, integration, and API layers. The initial blockers called out in this plan
+were resolved: `conftest.py` was rewritten, test dependencies/config were added,
+route tests use mocked AWS boundaries, and the backend suite is executable with
+an in-memory SQLite database.
 
-**Goal:** Understand and implement Unit → Integration → API testing layers with real-world
-RBAC testing, AWS mocking, and side-effect verification.
+**Current goal:** Raise coverage from the completed route/helper suite toward the
+75-80% target by adding focused service-layer tests, starting with AWS role
+management and then `aws_service.py`.
 
 ---
 
@@ -16,24 +18,25 @@ RBAC testing, AWS mocking, and side-effect verification.
 
 | Item | Status |
 |---|---|
-| `backend/tests/conftest.py` | Broken — `db = \n()` syntax error on line 50 |
-| `backend/tests/__init__.py` | Empty |
-| Test libraries in requirements.txt | None — pytest/httpx/moto all missing |
-| `pytest.ini` | Does not exist |
-| Test files | Zero |
+| `backend/tests/conftest.py` | Complete — SQLite isolation, auth fixtures, AWS route mock, ASGI test client wrapper |
+| `backend/tests/__init__.py` | Present |
+| `backend/requirements-dev.txt` | Present |
+| `backend/pytest.ini` | Present |
+| Route/helper test files | Present |
+| Backend suite | Passing: `145 passed` |
+| Latest coverage snapshot | 70% overall after AWS role-manager tests |
 
-**Critical bugs in conftest.py:**
-1. Line 50: `db =` followed by `()` on the next line — Python syntax error, nothing runs
-2. Line 48: `scope="function"` and `autouse=False` passed as *function arguments* instead of to `@pytest.fixture(scope=...)` — they are silently ignored
-3. Missing: transactional isolation (tests bleed into each other without rollback)
-4. Missing: token/auth header helper fixtures
-5. Missing: user fixtures for each role
+**Resolved initial blockers:**
+1. Broken `conftest.py` syntax and fixture wiring were replaced with working fixtures.
+2. Transactional SQLite isolation is in place through function-scoped sessions.
+3. Real JWT header fixtures exist for Admin, DevOps Engineer, User, and inactive users.
+4. EC2 route tests patch `app.ec2_routes.aws_service` to avoid real AWS calls.
+5. TestClient hangs in this sandbox were fixed with a test-only ASGI client wrapper.
 
-**aws_service.py module-level client problem:**
-Lines 119–121 create `ec2`, `ec2_resource` at import time.
-`moto`'s `@mock_aws` activated *after* import won't intercept these pre-built clients.
-**Solution:** patch `app.ec2_routes.aws_service` as a module mock for route tests.
-Reserve `moto` for direct `aws_service.py` unit tests (optional, lower priority).
+**Remaining coverage work:**
+1. `aws_role_manager.py` is covered by direct unit tests and now reports 100% coverage.
+2. `aws_service.py` is still at 24%, below the 30-40% target. Add direct service-layer tests next.
+3. Overall coverage is now 70%, below the 75-80% target. `aws_service.py` is the main remaining gap.
 
 ---
 
@@ -51,6 +54,7 @@ Reserve `moto` for direct `aws_service.py` unit tests (optional, lower priority)
 | `backend/tests/test_ec2_routes.py` | **Create** — EC2 endpoints with mocked aws_service (~25 tests) |
 | `backend/tests/test_metrics_routes.py` | **Create** — side-effect (DB persistence) tests (~12 tests) |
 | `backend/tests/test_costs_routes.py` | **Create** — Cost Explorer endpoints (~10 tests) |
+| `backend/tests/test_aws_role_manager.py` | **Create** — IAM role mapping, AssumeRole, client cache tests |
 
 ---
 
@@ -274,6 +278,23 @@ Key tests:
 
 ---
 
+### Step 11 — test_aws_role_manager.py
+
+**Teaching concept:** Unit testing AWS role-based access without touching AWS.
+Patch `boto3.client`, settings, and the role-manager singleton so tests verify
+CloudSim's IAM role logic deterministically.
+
+Key tests:
+- Role-based access disabled returns `None` so callers use default clients
+- Admin/DevOps/User map to their configured IAM role ARNs
+- `assume_role` forwards `RoleArn`, `RoleSessionName`, and `DurationSeconds`
+- Cost Explorer clients use `us-east-1`; other services use configured region
+- Cached EC2 clients are reused when valid and refreshed when expired
+
+~15 tests.
+
+---
+
 ## How to Run
 
 ```bash
@@ -312,8 +333,9 @@ pytest tests/test_auth_routes.py::test_register_success
 | 7 | `test_ec2_routes.py` | Mocking external services, side effects | 3.5 hr |
 | 8 | `test_metrics_routes.py` | Side-effect testing | 2 hr |
 | 9 | `test_costs_routes.py` | Cross-role auth, query params | 1.5 hr |
+| 10 | `test_aws_role_manager.py` | Role mapping, STS, client cache | 1 hr |
 
-**Total: ~120 tests, ~16 hours of pair coding across all steps**
+**Total: ~140 tests, ~17 hours of pair coding across all steps**
 
 ---
 
