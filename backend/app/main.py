@@ -37,13 +37,6 @@ from .db import engine, Base
 
 
 # =============================================================================
-# DATABASE INITIALIZATION
-# =============================================================================
-# Create all database tables on startup (if they don't exist)
-Base.metadata.create_all(bind=engine)
-
-
-# =============================================================================
 # SECURITY HEADERS MIDDLEWARE
 # =============================================================================
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -88,6 +81,7 @@ async def lifespan(app: FastAPI):
     logger = logging.getLogger("uvicorn")
     logger.info(f"CloudSim API starting in {settings.environment} mode")
     logger.info(f"CORS origins: {settings.cors_origins}")
+    Base.metadata.create_all(bind=engine)
     yield
     # ---- SHUTDOWN (add cleanup logic here if needed later) ----
 
@@ -146,5 +140,4 @@ app.include_router(admin_router)
 
 # EC2 routes: /api/ec2/instances, /api/ec2/costs, etc.
 app.include_router(ec2_router)
-
 

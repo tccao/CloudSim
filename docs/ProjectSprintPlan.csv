@@ -54,23 +54,23 @@ Milestone,,Milestone: Jan 4 design doc complete,0,Meeting-ready documentation,pa
 9,12/29/2025,Refactor backend for AWS + auth,2,"Service layers, adapters",yes,ec2_routes.py and aws_service.py refactored with clean error handling (commit 9dfe563)
 9,12/30/2025,Add error handling and retries,2,AWS + network resiliency,yes,AWSConfigurationError + AWSServiceError translated to 503/502 HTTP responses
 9,12/31/2025,Optimize DB queries and indexes,2,Metrics + instances,partial,index=True on email and instance_id; composite indexes on state/last_synced not added
-9,1/1/2026,Run full integration tests,2,Auth to AWS to DB to UI,no,No automated test suite; tested manually only
-9,1/2/2026,Fix bugs and polish flows,2,Stability pass,partial,Axios client.ts has no interceptor — auth.ts manages its own axios instance separately
-Milestone,,Milestone: Post-meeting stabilization,0,System reliable,partial,2 gaps: Axios interceptor + no automated tests
+9,1/1/2026,Run full integration tests,2,Auth to AWS to DB to UI,partial,Backend pytest suite passes 145 tests; frontend lint/build pass; live AWS/UI smoke still manual
+9,1/2/2026,Fix bugs and polish flows,2,Stability pass,yes,Axios interceptor centralized in client.ts; DB table creation moved from import time to FastAPI lifespan
+Milestone,,Milestone: Post-meeting stabilization,0,System reliable,partial,Automated backend/frontend checks are green; live deployment validation remains
 ,,,,,,
-10,1/5/2026,Learn Docker fundamentals,2,"Images, volumes, networks",no,
-10,1/6/2026,Containerize backend and frontend,2,Dockerfiles,no,
-10,1/7/2026,Set up Docker Compose stack,2,"API, UI, Postgres",no,
-10,1/8/2026,Run system locally via Docker,2,End-to-end validation,no,
-10,1/9/2026,Document local setup steps,2,Dev onboarding,no,
-Milestone,,Milestone: Containerized local system,0,Portable environment,no,
+10,1/5/2026,Learn Docker fundamentals,2,"Images, volumes, networks",partial,Docker/Compose files added with health checks and named Postgres volume
+10,1/6/2026,Containerize backend and frontend,2,Dockerfiles,yes,backend/Dockerfile and frontend/Dockerfile added
+10,1/7/2026,Set up Docker Compose stack,2,"API, UI, Postgres",yes,docker-compose.yml added for db/backend/frontend
+10,1/8/2026,Run system locally via Docker,2,End-to-end validation,partial,"Docker not installed in current WSL distro, so Compose build/run is documented but not locally executed"
+10,1/9/2026,Document local setup steps,2,Dev onboarding,yes,README now includes Docker Compose and quality check commands
+Milestone,,Milestone: Containerized local system,0,Portable environment,partial,Files are in place; needs Docker-enabled machine validation
 ,,,,,,
-11,1/12/2026,Learn CI/CD concepts,2,GitHub Actions,no,
-11,1/13/2026,Add backend tests to pipeline,2,Pytest,no,
-11,1/14/2026,Add frontend tests to pipeline,2,React Testing Library,no,
-11,1/15/2026,Enable automated builds,2,Docker CI,no,
-11,1/16/2026,Run CI validation pass,2,Green pipeline,no,
-Milestone,,Milestone: CI/CD operational,0,Automated quality,no,
+11,1/12/2026,Learn CI/CD concepts,2,GitHub Actions,yes,.github/workflows/ci.yml added with separate backend/frontend/docker jobs
+11,1/13/2026,Add backend tests to pipeline,2,Pytest,yes,CI runs python -m pytest
+11,1/14/2026,Add frontend tests to pipeline,2,React Testing Library,partial,CI runs frontend lint/build; React Testing Library tests are not installed yet
+11,1/15/2026,Enable automated builds,2,Docker CI,yes,CI validates Compose config and builds backend/frontend Docker images
+11,1/16/2026,Run CI validation pass,2,Green pipeline,partial,YAML parses locally; remote GitHub Actions run pending push/PR
+Milestone,,Milestone: CI/CD operational,0,Automated quality,partial,Pipeline file is implemented; needs remote run and frontend unit tests
 ,,,,,,
 12,1/19/2026,Deploy backend to cloud,2,Render/Railway,no,
 12,1/20/2026,Deploy frontend,2,Production UI,no,
@@ -80,7 +80,7 @@ Milestone,,Milestone: CI/CD operational,0,Automated quality,no,
 Milestone,,Milestone: CloudSim live in production,0,Publicly accessible,no,
 ,,,,,,
 13,1/26/2026,Polish UI/UX details,2,"Spacing, states",no,
-13,1/27/2026,Update README and docs,2,Usage + architecture,no,
+13,1/27/2026,Update README and docs,2,Usage + architecture,partial,README updated with Docker Compose and quality checks; deployment docs still pending
 13,1/28/2026,Record demo video,2,Feature walkthrough,no,
 13,1/29/2026,Write technical report,2,Decisions + tradeoffs,no,
 13,1/30/2026,Create portfolio entry,2,GitHub + LinkedIn,no,

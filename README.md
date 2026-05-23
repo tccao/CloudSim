@@ -33,6 +33,20 @@ Backend Python packages are listed in [backend/requirements.txt](/home/tinhc/Clo
 
 ## Quick Start
 
+### Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+- Frontend: http://localhost:5173
+- Backend health: http://localhost:8000/health
+- Backend API docs: http://localhost:8000/docs
+
+The Compose stack uses a local Postgres container and creates API tables on backend startup. For live AWS calls, export the needed AWS environment variables before starting Compose, or add them to a local `.env` file used by Docker Compose.
+
 ### Backend
 
 ```bash
@@ -51,3 +65,23 @@ cd frontend
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
+
+## Quality Checks
+
+Backend:
+
+```bash
+cd backend
+source venv/bin/activate
+python -m pytest
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+CI runs backend tests, frontend lint/build, Compose validation, and Docker image builds on pushes and pull requests to `main`.
