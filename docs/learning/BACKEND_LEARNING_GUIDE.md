@@ -1182,7 +1182,7 @@ backend/
 
 ### Runtime Requirements
 
-- Python 3.12+
+- Python 3.14+
 - PostgreSQL 15+ available and reachable through `DATABASE_URL`
 - `uvicorn` installed from `backend/requirements.txt`
 

@@ -16,7 +16,7 @@ A web-based platform that simulates core cloud infrastructure concepts like comp
 
 The backend is a FastAPI application and needs both Python dependencies and a running PostgreSQL database.
 
-- Python 3.12+
+- Python 3.14+
 - PostgreSQL 15+ running locally or reachable remotely
 - `uvicorn` for the ASGI development server
 
@@ -46,6 +46,50 @@ Then open:
 - Backend API docs: http://localhost:8000/docs
 
 The Compose stack uses a local Postgres container and creates API tables on backend startup. For live AWS calls, export the needed AWS environment variables before starting Compose, or add them to a local `.env` file used by Docker Compose.
+
+To check container status, run:
+
+```bash
+docker compose ps
+```
+
+To register user (User):
+```bash
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"docker-test@example.com","password":"testpassword123"}'
+```
+
+To promote user straight from Database:
+```bash
+docker compose exec db psql -U postgres -d cloudsim \
+  -c "UPDATE users SET role = 'Admin' WHERE email = 'docker-test@example.com';"
+```
+
+To login as Admin and create other user:
+```bash
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=docker-test@example.com&password=testpassword123" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+curl -X POST http://localhost:8000/api/admin/users \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"devops-test@example.com","password":"testpassword123","role":"DevOps Engineer"}'
+```
+
+To verify all users:
+```bash
+curl http://localhost:8000/api/admin/users \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+To shutdown, run (adding `-v` resets the Docker database):
+
+```bash
+docker compose down
+```
 
 ### Backend
 
@@ -81,6 +125,7 @@ Frontend:
 ```bash
 cd frontend
 npm run lint
+npm run test
 npm run build
 ```
 
