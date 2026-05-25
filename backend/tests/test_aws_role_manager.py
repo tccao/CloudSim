@@ -36,6 +36,23 @@ def _client_error(code: str = "ExpiredToken") -> ClientError:
     )
 
 
+def _credentials():
+    return {
+        "AccessKeyId": "AKIA_TEST",
+        "SecretAccessKey": "secret",
+        "SessionToken": "token",
+        "Expiration": "soon",
+    }
+
+
+def _fake_sts_client(credentials=None):
+    sts_client = MagicMock(name="sts-client")
+    sts_client.assume_role.return_value = {
+        "Credentials": credentials or _credentials()
+    }
+    return sts_client
+
+
 def test_get_role_arn_returns_none_when_role_based_access_disabled(monkeypatch):
     monkeypatch.setattr(aws_role_manager.settings, "enable_role_based_access", False)
 
@@ -102,15 +119,14 @@ def test_manager_initializes_sts_client_with_configured_region(monkeypatch):
 
 
 def test_assume_role_returns_credentials(monkeypatch):
-    credentials = {
-        "AccessKeyId": "AKIA_TEST",
-        "SecretAccessKey": "secret",
-        "SessionToken": "token",
-        "Expiration": "soon",
-    }
-    sts_client = MagicMock()
-    sts_client.assume_role.return_value = {"Credentials": credentials}
-    monkeypatch.setattr(aws_role_manager.boto3, "client", lambda *args, **kwargs: sts_client)
+    credentials = _credentials()
+    sts_client = _fake_sts_client(credentials)
+
+    def fake_boto_client(service, **kwargs):
+        assert service == "sts"
+        return sts_client
+
+    monkeypatch.setattr(aws_role_manager.boto3, "client", fake_boto_client)
 
     manager = aws_role_manager.AWSRoleManager()
 
@@ -123,9 +139,14 @@ def test_assume_role_returns_credentials(monkeypatch):
 
 
 def test_assume_role_reraises_client_error(monkeypatch):
-    sts_client = MagicMock()
+    sts_client = MagicMock(name="sts-client")
     sts_client.assume_role.side_effect = _client_error("AccessDenied")
-    monkeypatch.setattr(aws_role_manager.boto3, "client", lambda *args, **kwargs: sts_client)
+
+    def fake_boto_client(service, **kwargs):
+        assert service == "sts"
+        return sts_client
+
+    monkeypatch.setattr(aws_role_manager.boto3, "client", fake_boto_client)
 
     manager = aws_role_manager.AWSRoleManager()
 
@@ -135,8 +156,11 @@ def test_assume_role_reraises_client_error(monkeypatch):
 
 def test_get_service_client_uses_assumed_credentials_and_configured_region(monkeypatch):
     created_clients = []
+    sts_client = _fake_sts_client()
 
     def fake_boto_client(service, **kwargs):
+        if service == "sts":
+            return sts_client
         client = MagicMock(name=f"{service}-client")
         created_clients.append((service, kwargs, client))
         return client
@@ -145,11 +169,6 @@ def test_get_service_client_uses_assumed_credentials_and_configured_region(monke
     monkeypatch.setattr(aws_role_manager.boto3, "client", fake_boto_client)
 
     manager = aws_role_manager.AWSRoleManager()
-    manager.assume_role = MagicMock(return_value={
-        "AccessKeyId": "AKIA_TEST",
-        "SecretAccessKey": "secret",
-        "SessionToken": "token",
-    })
 
     result = manager.get_service_client("ec2", ADMIN_ARN, "cloudsim-1-ec2")
 
@@ -160,12 +179,20 @@ def test_get_service_client_uses_assumed_credentials_and_configured_region(monke
     assert kwargs["aws_secret_access_key"] == "secret"
     assert kwargs["aws_session_token"] == "token"
     assert kwargs["region_name"] == "us-west-2"
+    sts_client.assume_role.assert_called_once_with(
+        RoleArn=ADMIN_ARN,
+        RoleSessionName="cloudsim-1-ec2",
+        DurationSeconds=3600,
+    )
 
 
 def test_get_service_client_uses_us_east_1_for_cost_explorer(monkeypatch):
     created_clients = []
+    sts_client = _fake_sts_client()
 
     def fake_boto_client(service, **kwargs):
+        if service == "sts":
+            return sts_client
         client = MagicMock()
         created_clients.append((service, kwargs, client))
         return client
@@ -174,11 +201,6 @@ def test_get_service_client_uses_us_east_1_for_cost_explorer(monkeypatch):
     monkeypatch.setattr(aws_role_manager.boto3, "client", fake_boto_client)
 
     manager = aws_role_manager.AWSRoleManager()
-    manager.assume_role = MagicMock(return_value={
-        "AccessKeyId": "AKIA_TEST",
-        "SecretAccessKey": "secret",
-        "SessionToken": "token",
-    })
 
     manager.get_service_client("ce", ADMIN_ARN, "cloudsim-1-ce")
 
@@ -226,4 +248,3 @@ def test_get_cached_client_creates_client_with_truncated_session_name(monkeypatc
     session_name = manager.get_service_client.call_args.args[2]
     assert session_name.startswith("cloudsim-user-")
     assert len(session_name) == 64
-
