@@ -130,3 +130,13 @@ npm run build
 ```
 
 CI runs backend tests, frontend lint/build, Compose validation, and Docker image builds on pushes and pull requests to `main`.
+
+## Deployment
+
+Production deployment steps are documented in [docs/deployment/PRODUCTION_DEPLOYMENT.md](docs/deployment/PRODUCTION_DEPLOYMENT.md).
+
+Run a deployment smoke test with:
+
+```bash
+BACKEND_URL=https://your-backend.example.com ./scripts/smoke_deployment.sh
+```
