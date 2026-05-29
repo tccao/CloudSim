@@ -52,20 +52,28 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 ALLOWED_ORIGINS=https://<your-frontend-domain>
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=<your-aws-account-id>
+CLOUDSIM_AWS_BACKEND=mock
 ENABLE_COST_EXPLORER=false
 ENABLE_ROLE_BASED_ACCESS=false
 ```
 
+`CLOUDSIM_AWS_BACKEND=mock` is the recommended public demo setting. It stores
+virtual instances in PostgreSQL and returns synthetic metrics/costs without
+calling EC2, CloudWatch, or Cost Explorer. Use `live` only when you intentionally
+want CloudSim to manage real AWS resources.
+
 For live AWS role-based access, also set:
 
 ```text
+CLOUDSIM_AWS_BACKEND=live
 ENABLE_ROLE_BASED_ACCESS=true
 AWS_ROLE_ADMIN=arn:aws:iam::<account-id>:role/CloudSimAdminRole
 AWS_ROLE_DEVOPS=arn:aws:iam::<account-id>:role/CloudSimDevOpsRole
 AWS_ROLE_READONLY=arn:aws:iam::<account-id>:role/CloudSimUserRole
 ```
 
-If not using role assumption, set AWS credentials as provider secrets:
+Only when `CLOUDSIM_AWS_BACKEND=live`, if not using role assumption, set AWS
+credentials as provider secrets:
 
 ```text
 AWS_ACCESS_KEY_ID=<access-key>

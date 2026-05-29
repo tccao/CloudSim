@@ -141,6 +141,7 @@ class Settings(BaseSettings):
     aws_profile: Optional[str] = None
     aws_region: str = "us-east-1"
     aws_account_id: str = "096615316348"
+    aws_backend: str = Field("live", validation_alias="CLOUDSIM_AWS_BACKEND")  # live or mock
     
     # =========================================================================
     # IAM ROLE ARNS (for role-based AWS access)
@@ -204,6 +205,15 @@ class Settings(BaseSettings):
             )
         
         return v
+
+    @field_validator('aws_backend')
+    @classmethod
+    def validate_aws_backend(cls, v: str) -> str:
+        """Validate AWS backend mode."""
+        normalized = v.strip().lower()
+        if normalized not in {"live", "mock"}:
+            raise ValueError("CLOUDSIM_AWS_BACKEND must be either 'live' or 'mock'")
+        return normalized
     
     # =========================================================================
     # PROPERTIES
@@ -222,6 +232,11 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development mode."""
         return self.environment.lower() == "development"
+
+    @property
+    def use_mock_aws(self) -> bool:
+        """Check if EC2/CloudWatch/Cost Explorer should use local mock data."""
+        return self.aws_backend.lower() == "mock"
     
 
 # =============================================================================

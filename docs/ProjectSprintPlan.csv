@@ -72,10 +72,10 @@ Milestone,,Milestone: Containerized local system,0,Portable environment,yes,Dock
 11,1/16/2026,Run CI validation pass,2,Green pipeline,partial,YAML parses locally; remote GitHub Actions run pending push/PR
 Milestone,,Milestone: CI/CD operational,0,Automated quality,partial,Pipeline file is implemented with frontend tests; remote GitHub Actions run pending
 ,,,,,,
-12,1/19/2026,Deploy backend to cloud,2,Render/Railway,no,
-12,1/20/2026,Deploy frontend,2,Production UI,no,
-12,1/21/2026,Configure prod environment vars,2,AWS + secrets,no,
-12,1/22/2026,Validate production system,2,Smoke tests,no,
+12,1/19/2026,Deploy backend to cloud,2,Render/Railway,partial,Production deployment guide added for Render backend and managed Postgres; live deployment pending
+12,1/20/2026,Deploy frontend,2,Production UI,partial,Production deployment guide added for Vercel frontend; live deployment pending
+12,1/21/2026,Configure prod environment vars,2,AWS + secrets,partial,Production env var checklist documented; secrets still need provider setup
+12,1/22/2026,Validate production system,2,Smoke tests,partial,scripts/smoke_deployment.sh added for backend health and optional auth smoke checks
 12,1/23/2026,Monitor logs and metrics,2,Operational checks,no,
 Milestone,,Milestone: CloudSim live in production,0,Publicly accessible,no,
 ,,,,,,

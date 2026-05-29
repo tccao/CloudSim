@@ -27,6 +27,7 @@ services:
       ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:-096615316348}
+      CLOUDSIM_AWS_BACKEND: ${CLOUDSIM_AWS_BACKEND:-mock}
       ENABLE_COST_EXPLORER: ${ENABLE_COST_EXPLORER:-false}
       ENABLE_ROLE_BASED_ACCESS: ${ENABLE_ROLE_BASED_ACCESS:-false}
     ports:

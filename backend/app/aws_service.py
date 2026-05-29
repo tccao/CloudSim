@@ -113,12 +113,42 @@ def _get_boto3_session() -> boto3.Session:
         return boto3.Session(region_name=settings.aws_region)
 
 
+def _mock_backend_enabled() -> bool:
+    """Return True when AWS-facing behavior should be backed by Postgres mock data."""
+    return settings.use_mock_aws
+
+
+def _mock_service():
+    """Lazy import to avoid a module cycle while preserving the public facade."""
+    from . import mock_aws_service
+
+    return mock_aws_service
+
+
 # =============================================================================
 # DEFAULT CLIENTS
 # =============================================================================
-# Create session and default clients (used when role-based access is disabled)
-_session = _get_boto3_session()
-ec2 = _session.client("ec2")
+# Create boto3 clients lazily so mock mode never reaches the AWS SDK.
+_session: Optional[boto3.Session] = None
+ec2 = None
+cloudwatch = None
+cost_explorer = None
+
+
+def _get_session() -> boto3.Session:
+    global _session
+    if _session is None:
+        _session = _get_boto3_session()
+    return _session
+
+
+def _get_default_client(service: str, region_name: Optional[str] = None):
+    if _mock_backend_enabled():
+        raise AWSConfigurationError("AWS live client requested while CLOUDSIM_AWS_BACKEND=mock")
+    session = _get_session()
+    if region_name:
+        return session.client(service, region_name=region_name)
+    return session.client(service)
 
 
 # =============================================================================
@@ -145,6 +175,9 @@ def get_ec2_client_for_user(user_role: Optional[str] = None, user_id: Optional[i
             return role_client
     
     # Fall back to default client
+    global ec2
+    if ec2 is None:
+        ec2 = _get_default_client("ec2")
     return ec2
 
 
@@ -165,6 +198,9 @@ def get_cloudwatch_client_for_user(user_role: Optional[str] = None, user_id: Opt
         if role_client:
             return role_client
     
+    global cloudwatch
+    if cloudwatch is None:
+        cloudwatch = _get_default_client("cloudwatch")
     return cloudwatch
 
 
@@ -185,6 +221,9 @@ def get_cost_explorer_client_for_user(user_role: Optional[str] = None, user_id: 
         if role_client:
             return role_client
     
+    global cost_explorer
+    if cost_explorer is None:
+        cost_explorer = _get_default_client("ce", region_name="us-east-1")
     return cost_explorer
 
 
@@ -210,6 +249,9 @@ def list_instances(user_role: Optional[str] = None, user_id: Optional[int] = Non
     Raises:
         Exception: If AWS API call fails
     """
+    if _mock_backend_enabled():
+        return _mock_service().list_instances(user_role, user_id)
+
     try:
         # Get client with appropriate permissions
         client = get_ec2_client_for_user(user_role, user_id)
@@ -267,6 +309,9 @@ def get_instance(
     Raises:
         Exception: If AWS API call fails
     """
+    if _mock_backend_enabled():
+        return _mock_service().get_instance(instance_id, user_role, user_id)
+
     try:
         client = get_ec2_client_for_user(user_role, user_id)
         response = client.describe_instances(InstanceIds=[instance_id])
@@ -374,6 +419,9 @@ def start_instance(
     Returns:
         Action response with message and instance_id
     """
+    if _mock_backend_enabled():
+        return _mock_service().start_instance(instance_id, user_role, user_id)
+
     try:
         client = get_ec2_client_for_user(user_role, user_id)
         client.start_instances(InstanceIds=[instance_id])
@@ -396,6 +444,9 @@ def stop_instance(
     Returns:
         Action response with message and instance_id
     """
+    if _mock_backend_enabled():
+        return _mock_service().stop_instance(instance_id, user_role, user_id)
+
     try:
         client = get_ec2_client_for_user(user_role, user_id)
         client.stop_instances(InstanceIds=[instance_id])
@@ -418,6 +469,9 @@ def reboot_instance(
     Returns:
         Action response with message and instance_id
     """
+    if _mock_backend_enabled():
+        return _mock_service().reboot_instance(instance_id, user_role, user_id)
+
     try:
         client = get_ec2_client_for_user(user_role, user_id)
         client.reboot_instances(InstanceIds=[instance_id])
@@ -442,6 +496,9 @@ def terminate_instance(
     Returns:
         Action response with message and instance_id
     """
+    if _mock_backend_enabled():
+        return _mock_service().terminate_instance(instance_id, user_role, user_id)
+
     try:
         client = get_ec2_client_for_user(user_role, user_id)
         client.terminate_instances(InstanceIds=[instance_id])
@@ -536,6 +593,22 @@ def create_instance(
     Raises:
         Exception: If no suitable AMI found or AWS API fails
     """
+    if _mock_backend_enabled():
+        return _mock_service().create_instance(
+            name=name,
+            instance_type=instance_type,
+            image_id=image_id,
+            user_id=user_id,
+            user_email=user_email,
+            subnet_id=subnet_id,
+            security_group_ids=security_group_ids,
+            volume_size=volume_size,
+            volume_type=volume_type,
+            assign_public_ip=assign_public_ip,
+            delete_on_termination=delete_on_termination,
+            user_role=user_role,
+        )
+
     try:
         client = get_ec2_client_for_user(user_role, user_id)
         image_id, root_device_name = _resolve_image(client, image_id)
@@ -621,6 +694,9 @@ def get_available_instance_types() -> list[str]:
     Returns:
         List of allowed instance type strings
     """
+    if _mock_backend_enabled():
+        return _mock_service().get_available_instance_types()
+
     return [
         "t2.nano",     
         "t2.micro",    
@@ -640,6 +716,9 @@ def get_launch_options(
     AMIs are resolved to the latest matching image in the configured region.
     Network options prefer CloudSim-specific config values when present.
     """
+    if _mock_backend_enabled():
+        return _mock_service().get_launch_options(user_role, user_id)
+
     try:
         client = get_ec2_client_for_user(user_role, user_id)
 
@@ -762,12 +841,6 @@ def get_launch_options(
         _handle_aws_exception("Failed to load launch options", e)
 
 
-# =============================================================================
-# CLOUDWATCH METRICS
-# =============================================================================
-cloudwatch = _session.client("cloudwatch")
-
-
 def get_instance_metrics(
     instance_id: str,
     period_minutes: int = 60,
@@ -791,6 +864,14 @@ def get_instance_metrics(
     Returns:
         Dict with metric arrays, each containing {timestamp, value} objects
     """
+    if _mock_backend_enabled():
+        return _mock_service().get_instance_metrics(
+            instance_id,
+            period_minutes=period_minutes,
+            user_role=user_role,
+            user_id=user_id,
+        )
+
     client = get_cloudwatch_client_for_user(user_role, user_id)
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(minutes=period_minutes)
@@ -847,6 +928,9 @@ def get_instance_current_metrics(
     Returns:
         Dict with cpu_percent, network_in_bytes, network_out_bytes
     """
+    if _mock_backend_enabled():
+        return _mock_service().get_instance_current_metrics(instance_id, user_role, user_id)
+
     metrics = get_instance_metrics(
         instance_id,
         period_minutes=15,
@@ -864,13 +948,6 @@ def get_instance_current_metrics(
         "network_in_bytes": get_latest(metrics["network_in"]),
         "network_out_bytes": get_latest(metrics["network_out"]),
     }
-
-
-# =============================================================================
-# COST EXPLORER
-# =============================================================================
-# Note: Cost Explorer API is only available in us-east-1
-cost_explorer = _session.client("ce", region_name="us-east-1")
 
 
 def _cost_filter_for_user(user_role: Optional[str], user_id: Optional[int]) -> Optional[dict]:
@@ -905,6 +982,9 @@ def get_daily_costs(
     Returns:
         List of daily cost dicts: {date, compute, storage, network, total}
     """
+    if _mock_backend_enabled():
+        return _mock_service().get_daily_costs(days, user_role, user_id)
+
     if not settings.enable_cost_explorer:
         raise AWSConfigurationError(
             "Cost Explorer integration is disabled. Set ENABLE_COST_EXPLORER=true to enable it."
@@ -981,6 +1061,9 @@ def get_monthly_summary(
     Returns:
         Cost summary dict
     """
+    if _mock_backend_enabled():
+        return _mock_service().get_monthly_summary(user_role, user_id)
+
     if not settings.enable_cost_explorer:
         raise AWSConfigurationError(
             "Cost Explorer integration is disabled. Set ENABLE_COST_EXPLORER=true to enable it."
