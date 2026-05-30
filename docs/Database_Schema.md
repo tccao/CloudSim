@@ -152,17 +152,23 @@ Behavior notes:
 - Admin-only behavior is enforced in route dependencies, not through relational permissions.
 - Instance visibility and control rules are enforced in application logic, not through row-level security.
 
-## Seed Data
-The backend and frontend both assume a default local seed dataset for development and walkthroughs.
+## Seed And Bootstrap Data
+Production does not ship with hard-coded users. The backend can optionally
+bootstrap one admin account from environment variables during startup:
 
-| Email | Password | Role | Active |
-| :--- | :--- | :--- | :--- |
-| `admin@gmail.com` | `admin123` | `Admin` | `true` |
-| `devops@gmail.com` | `devops123` | `DevOps Engineer` | `true` |
-| `deng@gmail.com` | `deng123` | `DevOps Engineer` | `true` |
-| `user@gmail.com` | `user123` | `User` | `true` |
+```text
+CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true
+CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL=<admin-email>
+CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
+```
 
-These accounts exist so the login flow, role-based UI states, and admin features can be exercised quickly in local development without manual account creation.
+The startup bootstrap creates the user if missing, restores `role=Admin` and
+`is_active=true` for an existing user, and preserves the existing password
+unless `CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=true`.
+
+Local development can still use `backend/scripts/recreate_seed_database.py` for
+demo walkthrough accounts, but that script is blocked when
+`CLOUDSIM_ENVIRONMENT=production`.
 
 ## Detailed Walkthrough
 The `users` table exists because CloudSim uses first-party authentication instead of delegating all identity management to AWS or an external identity provider. A user signs in with an email and password. During login, the backend looks up `users.email`, checks the submitted password against `users.hashed_password`, and then issues a JWT. That means this table is the root of the entire auth flow: if the row is missing, inactive, or assigned the wrong role, the rest of the application behaves differently immediately.
@@ -179,7 +185,7 @@ Just as important is what the schema does not model yet. There is no separate `r
 CloudSim now has two recommended recreation paths.
 
 ### SQL recreation
-Use SQL when you want a direct PostgreSQL reset, especially if you are operating from `psql` or restoring a known development state. The SQL script is the best fit for local DB rebuilds, demos, and manual admin workflows.
+Use SQL when you want a direct PostgreSQL schema reset, especially if you are operating from `psql`. The SQL script is schema-only and intentionally does not seed users.
 
 Recommended command:
 
@@ -217,6 +223,6 @@ CloudSim database recreation complete.
 ```
 
 ### Choosing between them
-- Use SQL when you need a simple PostgreSQL reset from a database shell.
-- Use Python when you want the recreation path to follow the backend’s models and auth utilities.
+- Use SQL when you need a simple schema reset from a database shell.
+- Use Python when you want development demo users and the recreation path to follow the backend’s models and auth utilities.
 - Prefer the Python path during ongoing development.

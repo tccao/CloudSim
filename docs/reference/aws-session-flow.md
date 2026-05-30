@@ -324,7 +324,7 @@ def get_service_client(self, service: str, role_arn: str, session_name: str):
 
 ## Complete Request Flow
 
-### Example: user@gmail.com Lists EC2 Instances
+### Example: User Lists EC2 Instances
 
 #### Phase 1: Authentication
 
@@ -332,8 +332,8 @@ def get_service_client(self, service: str, role_arn: str, session_name: str):
 Browser                              Backend
    │                                    │
    │  POST /api/auth/login              │
-   │  username=user@gmail.com           │
-   │  password=user123                  │
+   │  username=<email>                  │
+   │  password=<password>               │
    │ ──────────────────────────────────▶│
    │                                    │
    │                          ┌─────────┴─────────┐
@@ -573,15 +573,15 @@ First, obtain JWT tokens for each role:
 ```bash
 # Admin Token
 ADMIN_TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
-  -d "username=admin@gmail.com&password=1" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+  -d "username=<admin-email>&password=<admin-password>" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
 
 # DevOps Token
 DEVOPS_TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
-  -d "username=deng@gmail.com&password=1" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+  -d "username=<devops-email>&password=<devops-password>" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
 
 # User Token
 USER_TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
-  -d "username=user@gmail.com&password=1" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+  -d "username=<user-email>&password=<user-password>" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
 ```
 
 ### 2. Test List Instances (Read Access)

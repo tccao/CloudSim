@@ -8,6 +8,9 @@ This guide deploys CloudSim as two services:
 
 This split keeps the backend close to PostgreSQL and lets the frontend use a CDN.
 
+The production hardening audit is tracked in
+[PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md).
+
 ## 1. Preflight
 
 Run these checks from the repository root before deploying:
@@ -55,6 +58,10 @@ AWS_ACCOUNT_ID=<your-aws-account-id>
 CLOUDSIM_AWS_BACKEND=mock
 ENABLE_COST_EXPLORER=false
 ENABLE_ROLE_BASED_ACCESS=false
+CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true
+CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL=<admin-email>
+CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
+CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=false
 ```
 
 `CLOUDSIM_AWS_BACKEND=mock` is the recommended public demo setting. It stores
@@ -83,7 +90,32 @@ AWS_SESSION_TOKEN=<optional-session-token>
 
 Never commit AWS credentials or production secrets.
 
-## 3. Frontend On Vercel
+## 3. Admin Bootstrap
+
+CloudSim can create or restore the first production admin during backend
+startup. This is backend-only and should be configured in Render secret
+environment variables, never in Vite.
+
+Required when bootstrap is enabled:
+
+```text
+CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true
+CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL=<admin-email>
+CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
+```
+
+Startup behavior is idempotent:
+
+- If the admin email does not exist, CloudSim creates an active `Admin` user.
+- If the user exists, CloudSim ensures `role=Admin` and `is_active=true`.
+- Existing passwords are preserved unless `CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=true`.
+- Passwords and password hashes are never logged.
+
+Leave bootstrap disabled after the admin is confirmed if you do not want startup
+to keep enforcing that account. Keep it enabled if you want relaunches to
+automatically restore the admin role and active status.
+
+## 4. Frontend On Vercel
 
 Create a Vercel project from the same Git repository:
 
@@ -99,10 +131,12 @@ VITE_API_URL=https://<your-backend-domain>
 ```
 
 Vite only exposes frontend environment variables that begin with `VITE_`.
+Do not put admin email/password/role bootstrap settings in Vite; those values
+are public once the static bundle is built.
 
 After changing `VITE_API_URL`, redeploy the frontend so the value is baked into the static build.
 
-## 4. CORS Checklist
+## 5. CORS Checklist
 
 Backend `ALLOWED_ORIGINS` must include the exact frontend URL:
 
@@ -118,7 +152,7 @@ ALLOWED_ORIGINS=https://cloudsim.example.com,https://cloudsim-preview.vercel.app
 
 Do not use a wildcard with credentials enabled.
 
-## 5. Smoke Test
+## 6. Smoke Test
 
 Health-only check:
 
@@ -136,8 +170,20 @@ SMOKE_AUTH=1 \
 ```
 
 The auth check creates a unique `User` account, logs in, and calls `/api/auth/me`.
+When `SMOKE_ADMIN_EMAIL` and `SMOKE_ADMIN_PASSWORD` are provided, the script
+also cleans up the smoke user through the admin API.
 
-## 6. Rollback
+Admin bootstrap/admin API check:
+
+```bash
+BACKEND_URL=https://<your-backend-domain> \
+SMOKE_ADMIN_CHECK=1 \
+SMOKE_ADMIN_EMAIL=<admin-email> \
+SMOKE_ADMIN_PASSWORD=<admin-password> \
+./scripts/smoke_deployment.sh
+```
+
+## 7. Rollback
 
 If deployment fails:
 
@@ -148,14 +194,15 @@ If deployment fails:
 
 Keep database rollback separate from app rollback. Do not reset production data unless you have a backup and a clear restore plan.
 
-## 7. Production Validation
+## 8. Production Validation
 
 Before marking production complete:
 
 - Backend `/health` returns healthy.
 - Frontend loads over HTTPS.
 - Register/login works.
-- Admin can create users after a controlled admin seed/promotion.
+- Admin bootstrap has created or restored the configured admin account.
+- Admin can create users through `/api/admin/users`.
 - EC2 list endpoint returns either live data or a clear AWS configuration error.
 - Metrics endpoint returns data or a clear AWS configuration error.
 - Logs show no repeated auth, CORS, database, or AWS credential errors.

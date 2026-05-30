@@ -4,7 +4,7 @@
 > **IAM Role:** `CloudSimAdminRole`  
 > **IAM Policy:** `CloudSimAdminPolicy`  
 > **Access Level:** Full Access — every feature available to DevOps plus user CRUD (`/api/admin/users`) and modifiable resource quotas.  
-> **Test Account:** `admin@gmail.com`  
+> **Admin Source:** Backend bootstrap or Admin-created account
 > **Last Updated:** May 2026
 
 ## Persona
@@ -35,7 +35,7 @@ Jordan is the technical co-founder of a startup that uses CloudSim to manage the
 
 ## Stage 1 - Authentication
 
-Jordan navigates to `localhost:5173` and enters credentials (`admin@gmail.com`) into the CloudSim login modal. After clicking Sign In, the backend authenticates the request and returns a JWT token containing the `Admin` role. Jordan is redirected to the Dashboard with an `Admin` badge displayed next to the email in the top navigation bar. The login flow is identical across all roles - the difference is in what the token unlocks.
+Jordan navigates to `localhost:5173` and enters the configured admin credentials into the CloudSim login modal. After clicking Sign In, the backend authenticates the request and returns a JWT token containing the `Admin` role. Jordan is redirected to the Dashboard with an `Admin` badge displayed next to the email in the top navigation bar. The login flow is identical across all roles - the difference is in what the token unlocks.
 
 ## Stage 2 - Dashboard & Cross-User Visibility
 

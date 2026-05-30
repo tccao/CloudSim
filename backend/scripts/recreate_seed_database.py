@@ -21,6 +21,7 @@ if str(BACKEND_ROOT) not in sys.path:
 from sqlalchemy.orm import Session
 
 from app.auth import get_password_hash
+from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models import User
 
@@ -52,6 +53,12 @@ def upsert_seed_users(db: Session) -> list[tuple[str, str]]:
 
 
 def recreate_database(drop_existing: bool) -> list[tuple[str, str]]:
+    if settings.is_production:
+        raise RuntimeError(
+            "recreate_seed_database.py is development-only and cannot run when "
+            "CLOUDSIM_ENVIRONMENT=production."
+        )
+
     if drop_existing:
         Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)

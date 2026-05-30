@@ -8,6 +8,11 @@
 --   DROP DATABASE IF EXISTS cloudsim;
 --   CREATE DATABASE cloudsim;
 --   \c cloudsim
+--
+-- This script recreates schema only. It intentionally does not seed demo users
+-- or production admins. For production, use the backend admin bootstrap env
+-- variables. For local demo data, use backend/scripts/recreate_seed_database.py
+-- outside CLOUDSIM_ENVIRONMENT=production.
 
 BEGIN;
 
@@ -56,12 +61,5 @@ CREATE TABLE metrics (
 
 CREATE INDEX ix_metrics_instance_id ON metrics (instance_id);
 CREATE INDEX ix_metrics_instance_name_recorded ON metrics (instance_id, metric_name, recorded_at);
-
-INSERT INTO users (email, hashed_password, role, is_active)
-VALUES
-    ('admin@gmail.com', '$2b$12$r8NnvtAHAi/k71R66k/Tg.QjMM7gn.KBnJ/SwFByV9vHdcL2O.Tze', 'Admin', TRUE),
-    ('devops@gmail.com', '$2b$12$g.FcT1gSuXkA0LpeR/6ryeFruR5aXzG4uR1B1.yYiJ9AYhi5Go3Ri', 'DevOps Engineer', TRUE),
-    ('deng@gmail.com', '$2b$12$IvWk6AKFJ0NMc0mbwZjdI.GU4NuVlOnbxybZnbAZHlg/l8AXLYZ/G', 'DevOps Engineer', TRUE),
-    ('user@gmail.com', '$2b$12$3cRoKKxi30rqyt9KhucMSuZwoQF4WYsPuWgGXQZe6byiBMMXo/0Ce', 'User', TRUE);
 
 COMMIT;

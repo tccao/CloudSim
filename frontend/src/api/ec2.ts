@@ -380,7 +380,7 @@ export async function getCostSummary(): Promise<CostSummary> {
 // Login to get a token (OAuth2 requires form-urlencoded)
 // curl - X POST http://localhost:8000/api/auth/login \
 // -H "Content-Type: application/x-www-form-urlencoded" \
-// -d "username=admin@gmail.com&password=admin123"
+// -d "username=<email>&password=<password>"
 // 
 // Response:
 // {"access_token": "eyJhbGci...", "token_type": "bearer"}
@@ -390,8 +390,4 @@ export async function getCostSummary(): Promise<CostSummary> {
 // curl -X GET http://localhost:8000/api/ec2/instances \
 //   -H "Authorization: Bearer $TOKEN"
 //
-// TEST ACCOUNTS:
-//   admin@gmail.com / admin123 (Admin)
-//   deng@gmail.com / deng123 (DevOps Engineer)
-//   user@gmail.com / user123 (User)
-
+// Admin users are configured by the backend bootstrap settings, not by Vite.

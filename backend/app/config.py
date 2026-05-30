@@ -165,6 +165,17 @@ class Settings(BaseSettings):
     # =========================================================================
     enable_cost_explorer: bool = True
     enable_role_based_access: bool = False  # Set to True to enable IAM role assumption
+
+    # =========================================================================
+    # ADMIN BOOTSTRAP
+    # =========================================================================
+    bootstrap_admin_enabled: bool = Field(False, validation_alias="CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED")
+    bootstrap_admin_email: Optional[str] = Field(None, validation_alias="CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL")
+    bootstrap_admin_password: Optional[str] = Field(None, validation_alias="CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD")
+    bootstrap_admin_reset_password: bool = Field(
+        False,
+        validation_alias="CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD",
+    )
     
     # =========================================================================
     # VALIDATORS

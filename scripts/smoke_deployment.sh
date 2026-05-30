@@ -5,6 +5,7 @@ set -euo pipefail
 BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
 FRONTEND_URL="${FRONTEND_URL:-}"
 SMOKE_AUTH="${SMOKE_AUTH:-0}"
+SMOKE_ADMIN_CHECK="${SMOKE_ADMIN_CHECK:-0}"
 SMOKE_PASSWORD="${SMOKE_PASSWORD:-testpassword123}"
 SMOKE_CLEANUP="${SMOKE_CLEANUP:-1}"
 SMOKE_ADMIN_EMAIL="${SMOKE_ADMIN_EMAIL:-}"
@@ -88,7 +89,20 @@ if [ -n "$FRONTEND_URL" ]; then
   curl -fsSI "$FRONTEND_URL" >/dev/null
 fi
 
-# Step 08: Auth smoke testing is opt-in because it creates a real user.
+# Step 08: Optional admin check validates bootstrap/admin API access.
+if [ "$SMOKE_ADMIN_CHECK" = "1" ]; then
+  if [ -z "$SMOKE_ADMIN_EMAIL" ] || [ -z "$SMOKE_ADMIN_PASSWORD" ]; then
+    echo "SMOKE_ADMIN_EMAIL and SMOKE_ADMIN_PASSWORD are required when SMOKE_ADMIN_CHECK=1." >&2
+    exit 1
+  fi
+
+  echo "Checking admin login and /api/admin/users"
+  ADMIN_TOKEN="$(login_user "$SMOKE_ADMIN_EMAIL" "$SMOKE_ADMIN_PASSWORD")"
+  curl -fsS "$BACKEND_URL/api/admin/users" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" >/dev/null
+fi
+
+# Step 09: Auth smoke testing is opt-in because it creates a real user.
 if [ "$SMOKE_AUTH" != "1" ]; then
   echo "Smoke test passed."
   exit 0
@@ -96,7 +110,7 @@ fi
 
 SMOKE_EMAIL="${SMOKE_EMAIL:-smoke-$(date +%s)@example.com}"
 
-# Step 09: Register a unique smoke user and remember its ID for cleanup.
+# Step 10: Register a unique smoke user and remember its ID for cleanup.
 echo "Registering smoke user: $SMOKE_EMAIL"
 REGISTER_RESPONSE="$(
   curl -fsS -X POST "$BACKEND_URL/api/auth/register" \
@@ -110,7 +124,7 @@ REGISTER_RESPONSE="$(
 SMOKE_USER_CREATED=1
 SMOKE_USER_ID="$(printf '%s' "$REGISTER_RESPONSE" | json_field "id")"
 
-# Step 10: Log in as the smoke user and validate the protected profile endpoint.
+# Step 11: Log in as the smoke user and validate the protected profile endpoint.
 echo "Logging in smoke user"
 TOKEN="$(login_user "$SMOKE_EMAIL" "$SMOKE_PASSWORD")"
 

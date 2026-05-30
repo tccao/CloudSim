@@ -126,13 +126,17 @@ ce:*
 
 ---
 
-## Test Accounts
+## Development Demo Accounts
 
-| Email | Password | Role | Purpose |
-|-------|----------|------|---------|
-| admin@gmail.com | admin123 | Admin | Full system access |
-| deng@gmail.com | deng123 | DevOps Engineer | Infrastructure management |
-| user@gmail.com | user123 | User | Basic end-user access |
+The optional local seed script creates demo users for walkthroughs only. Do not
+use those accounts in production. Production admin access should come from the
+backend-only startup bootstrap:
+
+```text
+CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true
+CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL=<admin-email>
+CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
+```
 
 ---
 

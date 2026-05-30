@@ -149,7 +149,7 @@ export async function register(data: RegisterData): Promise<User> {
  * # Form-urlencoded format (OAuth2 standard)
  * curl -X POST http://localhost:8000/api/auth/login \
  *   -H "Content-Type: application/x-www-form-urlencoded" \
- *   -d "username=admin@gmail.com&password=admin123"
+ *   -d "username=<email>&password=<password>"
  * ```
  * 
  * RESPONSE (200 OK):
@@ -160,11 +160,8 @@ export async function register(data: RegisterData): Promise<User> {
  * }
  * ```
  * 
- * TEST ACCOUNTS (from seed data):
- *   - admin@gmail.com / admin123 (Admin role)
- *   - devops@gmail.com / devops123 (DevOps Engineer role)
- *   - deng@gmail.com / deng123 (DevOps Engineer role)
- *   - user@gmail.com / user123 (User role)
+ * Production admin accounts are created by the backend bootstrap settings,
+ * not by frontend/Vite configuration.
  */
 export async function login(email: string, password: string): Promise<LoginResponse> {
     // OAuth2 spec requires form data, not JSON
@@ -198,7 +195,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
  * ```json
  * {
  *   "id": 1,
- *   "email": "admin@gmail.com",
+ *   "email": "<email>",
  *   "role": "Admin",
  *   "is_active": true
  * }
@@ -242,7 +239,7 @@ export function isAuthenticated(): boolean {
  *    ```bash
  *    curl -X POST http://localhost:8000/api/auth/login \
  *      -H "Content-Type: application/x-www-form-urlencoded" \
- *      -d "username=admin@gmail.com&password=admin123"
+ *      -d "username=<email>&password=<password>"
  *    ```
  * 
  * 2. Copy the access_token from the response

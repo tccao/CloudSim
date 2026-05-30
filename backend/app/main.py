@@ -34,6 +34,7 @@ from .auth_routes import router as auth_router
 from .admin_routes import router as admin_router
 from .ec2_routes import router as ec2_router
 from .db import engine, Base
+from .bootstrap import bootstrap_admin_user
 
 
 # =============================================================================
@@ -82,6 +83,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"CloudSim API starting in {settings.environment} mode")
     logger.info(f"CORS origins: {settings.cors_origins}")
     Base.metadata.create_all(bind=engine)
+    bootstrap_admin_user()
     yield
     # ---- SHUTDOWN (add cleanup logic here if needed later) ----
 
@@ -140,4 +142,3 @@ app.include_router(admin_router)
 
 # EC2 routes: /api/ec2/instances, /api/ec2/costs, etc.
 app.include_router(ec2_router)
-

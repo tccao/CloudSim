@@ -53,24 +53,32 @@ To check container status, run:
 docker compose ps
 ```
 
-To register user (User):
+To create a local admin through the same backend-only bootstrap used in production:
+
+```bash
+export CLOUDSIM_LOCAL_ADMIN_PASSWORD="$(openssl rand -hex 24)"
+CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true \
+CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL=docker-admin@example.com \
+CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD="$CLOUDSIM_LOCAL_ADMIN_PASSWORD" \
+docker compose up --build
+```
+
+Bootstrap creates the account if missing, or restores `role=Admin` and active status if it already exists. The password is preserved on later relaunches unless `CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=true` is also set.
+
+To register a regular user:
+
 ```bash
 curl -X POST http://localhost:8000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"docker-test@example.com","password":"testpassword123"}'
 ```
 
-To promote user straight from Database:
-```bash
-docker compose exec db psql -U postgres -d cloudsim \
-  -c "UPDATE users SET role = 'Admin' WHERE email = 'docker-test@example.com';"
-```
+To login as Admin and create another user:
 
-To login as Admin and create other user:
 ```bash
 ADMIN_TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=docker-test@example.com&password=testpassword123" \
+  -d "username=docker-admin@example.com&password=$CLOUDSIM_LOCAL_ADMIN_PASSWORD" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
 curl -X POST http://localhost:8000/api/admin/users \
