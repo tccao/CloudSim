@@ -62,11 +62,11 @@ CloudSim provides an AWS console-like experience:
 
 ### 2.1 Product Perspective
 CloudSim is a fullstack web application with:
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui (deployed to Vercel)
-- **Backend**: FastAPI + SQLAlchemy + boto3 (deployed to Render)
-- **Database**: PostgreSQL
-- **Cloud**: AWS EC2, CloudWatch, Cost Explorer
-- **CI/CD**: GitHub Actions (lint → test → build → deploy on push to `main`)
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui (deployed as a Vercel static site)
+- **Backend**: FastAPI + SQLAlchemy + boto3 (deployed as a Render Docker web service)
+- **Database**: PostgreSQL (local, Docker Compose, or Render PostgreSQL)
+- **Cloud**: AWS EC2, CloudWatch, Cost Explorer in `live` mode; PostgreSQL-backed mock resources in `mock` mode
+- **CI/CD**: GitHub Actions (backend tests, frontend lint/test/build, Compose validation, Docker image builds)
 
 ### 2.2 User Classes & Characteristics
 | Role | Permissions |
@@ -77,18 +77,19 @@ CloudSim is a fullstack web application with:
 
 ### 2.3 Operating Environment
 - Modern desktop browser (Chrome, Firefox, Safari)
-- Backend on Linux (Ubuntu/WSL)
-- AWS account with EC2 access
+- Production deployment with Vercel frontend and Render backend/database
+- Local development through Docker Compose or separate frontend/backend processes
+- AWS account with EC2 access only when `CLOUDSIM_AWS_BACKEND=live`
 
 ### 2.4 Design & Implementation Constraints
 - Role-based access control enforced at API level
-- Real AWS resources (costs apply for running instances)
+- `mock` mode for safe public demos; `live` mode for real AWS resources where costs apply
 - Single-developer velocity
 
 ### 2.5 Assumptions & Dependencies
-- Valid AWS credentials configured (via `.env` — see `IAM_Setup_Guide.md`)
+- Valid AWS credentials configured only for live AWS mode (see `IAM_Setup_Guide.md`)
 - PostgreSQL database available locally or via managed service
-- Node.js 18+ and Python 3.11+ installed
+- Node.js 22+ and Python 3.14+ installed for local parity with CI/Docker
 
 ---
 
@@ -436,7 +437,7 @@ See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered fl
 | Database | PostgreSQL |
 | Auth | JWT (python-jose, HS256), bcrypt |
 | CI/CD | GitHub Actions |
-| Hosting | Render (backend) · Vercel (frontend) |
+| Hosting | Vercel frontend static site, Render backend web service, Render PostgreSQL |
 
 ---
 
@@ -449,12 +450,12 @@ See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered fl
 
 ### UC-2: Launch New Instance
 **Trigger:** User clicks "Launch Instance"
-**Flow:** Open modal → Fill form → Submit → Create in AWS → Refresh list
+**Flow:** Open modal → Fill form → Submit → Create in mock or live AWS backend → Refresh list
 **Output:** New instance appears in dashboard
 
 ### UC-3: Manage Instance State
 **Trigger:** User clicks Start/Stop/Reboot
-**Flow:** Call API → AWS state change → Toast notification → Refresh
+**Flow:** Call API → instance state change → Toast notification → Refresh
 **Output:** Instance state updated
 
 ### UC-4: View Instance Details
@@ -464,7 +465,7 @@ See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered fl
 
 ### UC-5: Monitor Performance
 **Trigger:** User opens Monitoring tab
-**Flow:** Select instance → Fetch CloudWatch metrics → Persist datapoints to `metrics` table → Render charts
+**Flow:** Select instance → Fetch CloudWatch or mock metrics → Persist datapoints to `metrics` table → Render charts
 **Output:** CPU, Network, and Disk I/O charts with historical data
 
 ### UC-6: Manage Users (Admin)
@@ -482,11 +483,11 @@ See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered fl
 ## 11. Acceptance Criteria (MVP)
 
 - [x] **AC-1:** Authenticated users log in via JWT and receive a role-scoped token
-- [x] **AC-2:** Dashboard displays real EC2 instances synced from AWS to the local `instances` table
+- [x] **AC-2:** Dashboard displays instances from mock mode or live EC2, with metadata synced to the local `instances` table
 - [x] **AC-3:** Instance details show security groups, networking, EBS storage, and tags
-- [x] **AC-4:** Start / Stop / Reboot buttons trigger the corresponding AWS actions
+- [x] **AC-4:** Start / Stop / Reboot buttons trigger the corresponding mock or live lifecycle actions
 - [x] **AC-5:** Admin and DevOps can act on any instance; Users are restricted to instances they created (via `CreatedBy` tag)
-- [x] **AC-6:** Monitoring page shows CloudWatch CPU, Network, and Disk I/O charts
+- [x] **AC-6:** Monitoring page shows CPU, Network, and Disk I/O charts from CloudWatch or mock metrics
 - [x] **AC-7:** Each CloudWatch fetch persists datapoints to the `metrics` table (idempotent)
 - [x] **AC-8:** Cost Explorer integration shows daily breakdown and monthly projection, with `User` results filtered to their own resources
 - [x] **AC-9:** Admin can create, update, and delete users through `/api/admin/users`
@@ -528,11 +529,17 @@ See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered fl
 - ✅ Local persistence of CloudWatch metrics (`metrics` table)
 - ✅ Migration to FastAPI lifespan handlers
 - ✅ Security headers middleware
+- ✅ Mock AWS backend for safe production demos
+- ✅ Production deployment guide for Vercel frontend, Render backend, and Render PostgreSQL
+- ✅ Deployment smoke test script
 
 ### 13.2 Current Status
-- All MVP features implemented and verified end-to-end
-- Real AWS EC2, CloudWatch, and Cost Explorer integration working
+- All MVP features implemented and production-deployable
+- Vite frontend documented for Vercel and FastAPI backend documented for Render production mode
+- Mock mode supports safe public demos without real AWS calls
+- Live mode supports AWS EC2, CloudWatch, and Cost Explorer integration
 - RBAC enforced at the API layer for all three roles
+- Deployment smoke testing available through `scripts/smoke_deployment.sh`
 - See `docs/ProjectSprintPlan.csv` for detailed sprint history
 
 ### 13.3 Future Enhancements

@@ -1,73 +1,74 @@
-# React + TypeScript + Vite
+# CloudSim Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the Vite React frontend for CloudSim. It provides the authenticated dashboard, launch wizard, instance details, monitoring charts, and IAM/settings panel.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 18 + TypeScript
+- Vite / rolldown-vite
+- Tailwind CSS 4
+- shadcn/ui and Radix primitives
+- Recharts for monitoring charts
+- Axios API client with JWT request/response interceptors
+- Vitest + React Testing Library
 
-## React Compiler
+## Runtime Contract
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The frontend talks to the FastAPI backend through the shared Axios client in `src/api/client.ts`.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+VITE_API_URL=https://<your-backend-service>.onrender.com
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+If `VITE_API_URL` is not set, local development falls back to `http://localhost:8000`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Only `VITE_*` values are exposed to the browser. Keep admin bootstrap variables, database URLs, JWT secrets, and AWS credentials on the backend service.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Local Development
+
+```bash
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
+
+Expected local backend:
+
+```text
+http://localhost:8000
+```
+
+## Production Build
+
+```bash
+npm run build
+npm run preview
+```
+
+The build output is written to `dist/`. On Vercel, deploy it as a Vite static app with:
+
+- Root directory: `frontend`
+- Install command: `npm ci`
+- Build command: `npm run build`
+- Output directory: `dist`
+- Environment variable: `VITE_API_URL=https://<your-backend-service>.onrender.com`
+
+The Docker production path also exists in `frontend/Dockerfile` for local Compose and container validation; it builds the Vite app and serves `dist/` through nginx with SPA fallback routing.
+
+## Quality Checks
+
+```bash
+npm run lint
+npm run test
+npm run build
+```
+
+## Feature Areas
+
+- `src/App.tsx`: top-level authenticated shell, tabs, launch modal, IAM panel.
+- `src/contexts/UserContext.tsx`: login, registration, token validation, logout, role state.
+- `src/components/DashboardPage.tsx`: instance inventory and lifecycle actions.
+- `src/components/CreateInstanceModal.tsx`: four-step EC2 launch wizard.
+- `src/components/InstanceDetailsPage.tsx`: details, security, networking, storage, and tags.
+- `src/components/InstanceMonitoringPage.tsx`: metrics, costs, and chart tabs.
+- `src/components/IAMPanel.tsx`: current user, admin user management, role permissions, advanced settings.
+- `src/api/`: typed API wrappers for auth, admin, instances, EC2, metrics, and costs.

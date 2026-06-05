@@ -1,15 +1,12 @@
 # CloudSim Production Deployment
 
-This guide deploys CloudSim as two services:
+This guide deploys CloudSim with the production hosting split used by the app:
 
-- Backend API: Docker web service on Render
-- Frontend UI: Vite static app on Vercel
-- Database: Managed PostgreSQL
+- Frontend UI: Vite static site on Vercel
+- Backend API: FastAPI Docker web service on Render
+- Database: Render PostgreSQL
 
-This split keeps the backend close to PostgreSQL and lets the frontend use a CDN.
-
-The production hardening audit is tracked in
-[PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md).
+The production hardening audit is tracked in [PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md).
 
 ## 1. Preflight
 
@@ -30,19 +27,21 @@ docker compose config
 docker compose build backend frontend
 ```
 
-## 2. Backend On Render
+## 2. Database On Render
 
-Create a PostgreSQL database first. Use the internal database URL for the backend service when both are in the same Render region.
+Create a Render PostgreSQL database before the backend service.
+
+Use the internal database URL for `DATABASE_URL` when the backend and database are in the same Render region. Keep the external URL only for local admin tools.
+
+## 3. Backend On Render
 
 Create a Render web service:
 
 - Runtime: Docker
 - Root directory: `backend`
-- Dockerfile path: `backend/Dockerfile` if using repository root as the service root, or `Dockerfile` if using `backend` as the root directory
+- Dockerfile path: `Dockerfile` when using `backend` as the service root
 - Health check path: `/health`
-- Port: use Render's injected `PORT` environment variable
-
-Render web services need the app to bind to `0.0.0.0`; the backend Dockerfile does this and reads `${PORT:-8000}`.
+- Port: Render injects `PORT`; the Dockerfile reads `${PORT:-8000}`
 
 Set backend environment variables:
 
@@ -52,7 +51,7 @@ CLOUDSIM_DEBUG=false
 DATABASE_URL=<render-postgres-internal-url>
 SECRET_KEY=<openssl-rand-hex-32-output>
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-ALLOWED_ORIGINS=https://<your-frontend-domain>
+ALLOWED_ORIGINS=https://<your-frontend-domain>.vercel.app
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=<your-aws-account-id>
 CLOUDSIM_AWS_BACKEND=mock
@@ -64,23 +63,22 @@ CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
 CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=false
 ```
 
-`CLOUDSIM_AWS_BACKEND=mock` is the recommended public demo setting. It stores
-virtual instances in PostgreSQL and returns synthetic metrics/costs without
-calling EC2, CloudWatch, or Cost Explorer. Use `live` only when you intentionally
-want CloudSim to manage real AWS resources.
+`CLOUDSIM_AWS_BACKEND=mock` is the recommended public demo setting. It stores virtual instances in PostgreSQL and returns synthetic metrics/costs without calling EC2, CloudWatch, or Cost Explorer.
+
+Use `live` only when you intentionally want CloudSim to manage real AWS resources.
 
 For live AWS role-based access, also set:
 
 ```text
 CLOUDSIM_AWS_BACKEND=live
 ENABLE_ROLE_BASED_ACCESS=true
+ENABLE_COST_EXPLORER=true
 AWS_ROLE_ADMIN=arn:aws:iam::<account-id>:role/CloudSimAdminRole
 AWS_ROLE_DEVOPS=arn:aws:iam::<account-id>:role/CloudSimDevOpsRole
 AWS_ROLE_READONLY=arn:aws:iam::<account-id>:role/CloudSimUserRole
 ```
 
-Only when `CLOUDSIM_AWS_BACKEND=live`, if not using role assumption, set AWS
-credentials as provider secrets:
+Only when `CLOUDSIM_AWS_BACKEND=live`, if not using role assumption, set AWS credentials as backend service secrets:
 
 ```text
 AWS_ACCESS_KEY_ID=<access-key>
@@ -88,13 +86,11 @@ AWS_SECRET_ACCESS_KEY=<secret-key>
 AWS_SESSION_TOKEN=<optional-session-token>
 ```
 
-Never commit AWS credentials or production secrets.
+Never commit AWS credentials, database URLs, JWT secrets, or admin bootstrap passwords.
 
-## 3. Admin Bootstrap
+## 4. Admin Bootstrap
 
-CloudSim can create or restore the first production admin during backend
-startup. This is backend-only and should be configured in Render secret
-environment variables, never in Vite.
+CloudSim can create or restore the first production admin during backend startup. This is backend-only and must be configured in Render secret environment variables, not in Vite.
 
 Required when bootstrap is enabled:
 
@@ -111,11 +107,9 @@ Startup behavior is idempotent:
 - Existing passwords are preserved unless `CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=true`.
 - Passwords and password hashes are never logged.
 
-Leave bootstrap disabled after the admin is confirmed if you do not want startup
-to keep enforcing that account. Keep it enabled if you want relaunches to
-automatically restore the admin role and active status.
+After the admin is confirmed, you may leave bootstrap enabled to restore the admin role on relaunch, or disable it to stop enforcing that account.
 
-## 4. Frontend On Vercel
+## 5. Frontend On Vercel
 
 Create a Vercel project from the same Git repository:
 
@@ -127,82 +121,89 @@ Create a Vercel project from the same Git repository:
 Set frontend environment variables:
 
 ```text
-VITE_API_URL=https://<your-backend-domain>
+VITE_API_URL=https://<your-backend-service>.onrender.com
 ```
 
-Vite only exposes frontend environment variables that begin with `VITE_`.
-Do not put admin email/password/role bootstrap settings in Vite; those values
-are public once the static bundle is built.
+Vite only exposes environment variables that begin with `VITE_`. Do not put admin bootstrap settings, database URLs, JWT secrets, or AWS credentials in the frontend service.
 
-After changing `VITE_API_URL`, redeploy the frontend so the value is baked into the static build.
+After changing `VITE_API_URL`, redeploy the frontend so the value is baked into the static bundle.
 
-## 5. CORS Checklist
+### Optional Frontend Docker Path
+
+The `frontend/Dockerfile` still exists for local Compose and container validation. It builds the Vite app and serves `dist/` through nginx with SPA fallback routing. Pass the API URL as a Docker build argument:
+
+```text
+VITE_API_URL=https://<your-backend-service>.onrender.com
+```
+
+## 6. CORS Checklist
 
 Backend `ALLOWED_ORIGINS` must include the exact frontend URL:
 
 ```text
-ALLOWED_ORIGINS=https://cloudsim.example.com
+ALLOWED_ORIGINS=https://<your-frontend-domain>.vercel.app
 ```
 
 For multiple origins, use commas:
 
 ```text
-ALLOWED_ORIGINS=https://cloudsim.example.com,https://cloudsim-preview.vercel.app
+ALLOWED_ORIGINS=https://<your-frontend-domain>.vercel.app,https://<preview-domain>.vercel.app
 ```
 
 Do not use a wildcard with credentials enabled.
 
-## 6. Smoke Test
+## 7. Smoke Test
 
 Health-only check:
 
 ```bash
-BACKEND_URL=https://<your-backend-domain> ./scripts/smoke_deployment.sh
+BACKEND_URL=https://<your-backend-service>.onrender.com ./scripts/smoke_deployment.sh
 ```
 
 Health plus auth check:
 
 ```bash
-BACKEND_URL=https://<your-backend-domain> \
-FRONTEND_URL=https://<your-frontend-domain> \
+BACKEND_URL=https://<your-backend-service>.onrender.com \
+FRONTEND_URL=https://<your-frontend-domain>.vercel.app \
 SMOKE_AUTH=1 \
 ./scripts/smoke_deployment.sh
 ```
 
-The auth check creates a unique `User` account, logs in, and calls `/api/auth/me`.
-When `SMOKE_ADMIN_EMAIL` and `SMOKE_ADMIN_PASSWORD` are provided, the script
-also cleans up the smoke user through the admin API.
+The auth check creates a unique `User` account, logs in, and calls `/api/auth/me`. When `SMOKE_ADMIN_EMAIL` and `SMOKE_ADMIN_PASSWORD` are provided, the script also cleans up the smoke user through the admin API.
 
 Admin bootstrap/admin API check:
 
 ```bash
-BACKEND_URL=https://<your-backend-domain> \
+BACKEND_URL=https://<your-backend-service>.onrender.com \
 SMOKE_ADMIN_CHECK=1 \
 SMOKE_ADMIN_EMAIL=<admin-email> \
 SMOKE_ADMIN_PASSWORD=<admin-password> \
 ./scripts/smoke_deployment.sh
 ```
 
-## 7. Rollback
+## 8. Rollback
 
 If deployment fails:
 
 1. Roll back the backend service to the previous successful deploy.
-2. Roll back the frontend deployment.
+2. Roll back the Vercel frontend deploy.
 3. Confirm `/health` returns `{"status":"healthy"}`.
 4. Confirm frontend requests are not blocked by CORS.
 
 Keep database rollback separate from app rollback. Do not reset production data unless you have a backup and a clear restore plan.
 
-## 8. Production Validation
+## 9. Production Validation
 
 Before marking production complete:
 
 - Backend `/health` returns healthy.
 - Frontend loads over HTTPS.
+- Frontend API calls use the deployed backend URL.
 - Register/login works.
 - Admin bootstrap has created or restored the configured admin account.
 - Admin can create users through `/api/admin/users`.
-- EC2 list endpoint returns either live data or a clear AWS configuration error.
-- Metrics endpoint returns data or a clear AWS configuration error.
+- Dashboard lists mock or live instances according to `CLOUDSIM_AWS_BACKEND`.
+- Launch wizard can create an instance in the selected mode.
+- Instance details tabs render data.
+- Monitoring renders metrics and persists datapoints.
 - Logs show no repeated auth, CORS, database, or AWS credential errors.

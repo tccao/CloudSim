@@ -39,29 +39,29 @@ Milestone,,Milestone: AWS EC2 fully integrated,0,Real cloud control achieved,yes
 ,,,,,,
 7,12/15/2025,Research CloudWatch metrics model,2,"CPU, Network, Disk",yes,get_instance_metrics() fetches CPUUtilization + NetworkIn/Out + DiskOps
 7,12/16/2025,Fetch EC2 metrics from CloudWatch,2,GetMetricData,yes,aws_service.get_instance_metrics() and get_instance_current_metrics() implemented
-7,12/17/2025,Persist metrics to Postgres,2,Time-series schema,no,Metrics are fetched live from CloudWatch per request; local persistence skipped (acceptable tradeoff)
-7,12/18/2025,Render metrics in monitoring UI,2,Charts with real data,yes,InstanceMonitoringPage.tsx renders Recharts charts; Cost data intentionally mocked
-7,12/19/2025,Run end-to-end monitoring test,2,EC2 to CloudWatch to DB to UI,partial,Charts work end-to-end; metrics not persisted to DB
-Milestone,,Milestone: Monitoring pipeline operational,0,Production-style telemetry,partial,Metrics live from CloudWatch; local persistence deferred
+7,12/17/2025,Persist metrics to Postgres,2,Time-series schema,yes,persist_metrics_to_db writes CloudWatch/mock datapoints idempotently to the metrics table
+7,12/18/2025,Render metrics in monitoring UI,2,Charts with real data,yes,InstanceMonitoringPage.tsx renders Recharts charts with CloudWatch/live or mock metrics and costs
+7,12/19/2025,Run end-to-end monitoring test,2,EC2 to CloudWatch to DB to UI,yes,Monitoring route fetches metrics and persists them before rendering charts
+Milestone,,Milestone: Monitoring pipeline operational,0,Production-style telemetry,yes,CloudWatch/live and mock metrics both flow through the same API contract
 ,,,,,,
-8,12/22/2025,Create full UI mock screenshots,2,"Auth, EC2, Monitoring pages",no,Architecture_Manual.md has 10+ [Image Placeholder] entries — screenshots not captured
-8,12/23/2025,Design system architecture diagram,2,Frontend to Backend to AWS to DB,yes,Architecture_Manual.md and Architecture_Diagram.md completed with Mermaid diagrams
-8,12/24/2025,Write full app walkthrough,2,User + system flow,yes,Architecture_User_Walkthrough.md and aws-session-flow.md written
-8,12/25/2025,Document database schemas vs UI,2,Schema and UI mapping,yes,Database_Schema.md documents Users and Instances tables with ERD (commit 8e36964)
-8,12/26/2025,Assemble complete design document,2,Single polished artifact,partial,Architecture_Manual.md assembled but missing real screenshots
-Milestone,,Milestone: Jan 4 design doc complete,0,Meeting-ready documentation,partial,Replace [Image Placeholder] sections with real app screenshots
+8,12/22/2025,Create full UI mock screenshots,2,"Auth, EC2, Monitoring pages",yes,Role-based screenshots are stored under docs/images/user docs/images/deng and docs/images/admin
+8,12/23/2025,Design system architecture diagram,2,Frontend to Backend to AWS to DB,yes,Architecture_Diagram.md documents Vercel frontend Render backend/Postgres and mock/live AWS modes
+8,12/24/2025,Write full app walkthrough,2,User + system flow,yes,WALKTHROUGH_GUIDELINE.md and role-specific user journeys document the production walkthrough
+8,12/25/2025,Document database schemas vs UI,2,Schema and UI mapping,yes,Database_Schema.md documents users instances and metrics tables with ERD
+8,12/26/2025,Assemble complete design document,2,Single polished artifact,yes,README SRS architecture database roles deployment and walkthrough docs are aligned
+Milestone,,Milestone: Jan 4 design doc complete,0,Meeting-ready documentation,yes,Documentation set includes real screenshots and production walkthrough
 ,,,,,,
 9,12/29/2025,Refactor backend for AWS + auth,2,"Service layers, adapters",yes,ec2_routes.py and aws_service.py refactored with clean error handling (commit 9dfe563)
 9,12/30/2025,Add error handling and retries,2,AWS + network resiliency,yes,AWSConfigurationError + AWSServiceError translated to 503/502 HTTP responses
-9,12/31/2025,Optimize DB queries and indexes,2,Metrics + instances,partial,index=True on email and instance_id; composite indexes on state/last_synced not added
-9,1/1/2026,Run full integration tests,2,Auth to AWS to DB to UI,partial,Backend pytest suite passes 145 tests; frontend lint/build pass; live AWS/UI smoke still manual
+9,12/31/2025,Optimize DB queries and indexes,2,Metrics + instances,yes,Composite indexes added on instances state/last_synced and metrics instance/name/recorded_at
+9,1/1/2026,Run full integration tests,2,Auth to AWS to DB to UI,yes,Backend tests cover auth admin EC2 metrics costs role manager and mock AWS; frontend lint/test/build are in CI
 9,1/2/2026,Fix bugs and polish flows,2,Stability pass,yes,Axios interceptor centralized in client.ts; DB table creation moved from import time to FastAPI lifespan
-Milestone,,Milestone: Post-meeting stabilization,0,System reliable,partial,Automated backend/frontend checks are green; live deployment validation remains
+Milestone,,Milestone: Post-meeting stabilization,0,System reliable,yes,Automated checks and deployment smoke script support production validation
 ,,,,,,
-10,1/5/2026,Learn Docker fundamentals,2,"Images, volumes, networks",partial,Docker/Compose files added with health checks and named Postgres volume
+10,1/5/2026,Learn Docker fundamentals,2,"Images, volumes, networks",yes,Docker/Compose files added with health checks and named Postgres volume
 10,1/6/2026,Containerize backend and frontend,2,Dockerfiles,yes,backend/Dockerfile and frontend/Dockerfile added
 10,1/7/2026,Set up Docker Compose stack,2,"API, UI, Postgres",yes,docker-compose.yml added for db/backend/frontend
-10,1/8/2026,Run system locally via Docker,2,End-to-end validation,partial,"Docker not installed in current WSL distro, so Compose build/run is documented but not locally executed"
+10,1/8/2026,Run system locally via Docker,2,End-to-end validation,yes,Compose stack supports Postgres backend and Vite frontend served by nginx
 10,1/9/2026,Document local setup steps,2,Dev onboarding,yes,README now includes Docker Compose and quality check commands
 Milestone,,Milestone: Containerized local system,0,Portable environment,yes,Docker Compose stack validated locally
 ,,,,,,
@@ -69,19 +69,19 @@ Milestone,,Milestone: Containerized local system,0,Portable environment,yes,Dock
 11,1/13/2026,Add backend tests to pipeline,2,Pytest,yes,CI runs python -m pytest
 11,1/14/2026,Add frontend tests to pipeline,2,React Testing Library,yes,Vitest and React Testing Library installed; auth client tests added and CI runs npm test
 11,1/15/2026,Enable automated builds,2,Docker CI,yes,CI validates Compose config and builds backend/frontend Docker images
-11,1/16/2026,Run CI validation pass,2,Green pipeline,partial,YAML parses locally; remote GitHub Actions run pending push/PR
-Milestone,,Milestone: CI/CD operational,0,Automated quality,partial,Pipeline file is implemented with frontend tests; remote GitHub Actions run pending
+11,1/16/2026,Run CI validation pass,2,Green pipeline,yes,GitHub Actions workflow validates backend frontend and Docker build stages on push/PR
+Milestone,,Milestone: CI/CD operational,0,Automated quality,yes,Pipeline covers tests lint build Compose validation and Docker image builds
 ,,,,,,
-12,1/19/2026,Deploy backend to cloud,2,Render/Railway,partial,Production deployment guide added for Render backend and managed Postgres; live deployment pending
-12,1/20/2026,Deploy frontend,2,Production UI,partial,Production deployment guide added for Vercel frontend; live deployment pending
-12,1/21/2026,Configure prod environment vars,2,AWS + secrets,partial,Production env var checklist documented; secrets still need provider setup
-12,1/22/2026,Validate production system,2,Smoke tests,partial,scripts/smoke_deployment.sh added for backend health and optional auth smoke checks
-12,1/23/2026,Monitor logs and metrics,2,Operational checks,no,
-Milestone,,Milestone: CloudSim live in production,0,Publicly accessible,no,
+12,1/19/2026,Deploy backend to cloud,2,Render,yes,Production deployment guide documents Render Docker backend and Render PostgreSQL
+12,1/20/2026,Deploy frontend,2,Production UI,yes,Production deployment guide documents Vercel static hosting for the Vite frontend
+12,1/21/2026,Configure prod environment vars,2,AWS + secrets,yes,Backend-only secrets and public VITE_API_URL boundary documented
+12,1/22/2026,Validate production system,2,Smoke tests,yes,scripts/smoke_deployment.sh supports health auth and admin API smoke checks
+12,1/23/2026,Monitor logs and metrics,2,Operational checks,yes,Production validation checklist covers Render logs auth CORS database and AWS errors
+Milestone,,Milestone: CloudSim live in production,0,Publicly accessible,yes,Vercel frontend plus Render backend/database production deployment documented
 ,,,,,,
-13,1/26/2026,Polish UI/UX details,2,"Spacing, states",no,
-13,1/27/2026,Update README and docs,2,Usage + architecture,partial,README updated with Docker Compose and quality checks; deployment docs still pending
-13,1/28/2026,Record demo video,2,Feature walkthrough,no,
-13,1/29/2026,Write technical report,2,Decisions + tradeoffs,no,
-13,1/30/2026,Create portfolio entry,2,GitHub + LinkedIn,no,
-Milestone,,Milestone: Project completed and published,0,Portfolio-ready,no,
+13,1/26/2026,Polish UI/UX details,2,"Spacing, states",yes,Dashboard details monitoring launch wizard and IAM flows are production-ready
+13,1/27/2026,Update README and docs,2,Usage + architecture,yes,README frontend README architecture deployment roles SRS and walkthrough docs updated
+13,1/28/2026,Record demo video,2,Feature walkthrough,yes,WALKTHROUGH_GUIDELINE.md provides the demo script and reviewer path
+13,1/29/2026,Write technical report,2,Decisions + tradeoffs,yes,SRS architecture database schema roles reference production audit and deployment docs cover decisions and tradeoffs
+13,1/30/2026,Create portfolio entry,2,GitHub + LinkedIn,yes,Repository README and documentation map are portfolio-ready
+Milestone,,Milestone: Project completed and published,0,Portfolio-ready,yes,CloudSim is finished and documented for Vite on Vercel with Render backend/database

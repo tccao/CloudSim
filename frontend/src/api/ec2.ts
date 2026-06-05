@@ -130,7 +130,8 @@ export async function getInstance(instanceId: string): Promise<EC2InstanceDetail
 //   -d '{"name": "test-server", "instance_type": "t2.micro"}'
 // 
 //
-// REQUIRED ROLE: DevOps Engineer or Admin
+// REQUIRED ROLE: Any authenticated CloudSim role.
+// Standard users create instances owned by their own user ID.
 export async function createInstance(data: CreateInstanceRequest): Promise<ActionResponse> {
     const response = await api.post<ActionResponse>('/api/ec2/instances', data);
     return response.data;
@@ -145,7 +146,7 @@ export async function createInstance(data: CreateInstanceRequest): Promise<Actio
 //   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 // 
 //
-// REQUIRED ROLE: Admin only
+// REQUIRED ROLE: Admin/DevOps for any instance, User for owned instances.
 // WARNING: This action is irreversible!
 export async function terminateInstance(instanceId: string): Promise<ActionResponse> {
     const response = await api.delete<ActionResponse>(`/api/ec2/instances/${instanceId}`);

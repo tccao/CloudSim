@@ -24,12 +24,12 @@
 # =============================================================================
 # IMPORTS
 # =============================================================================
-import boto3
 from typing import Dict, Optional
 from botocore.exceptions import ClientError
 import logging
 
 from .config import settings
+from .role_providers import RoleProvider
 
 
 # =============================================================================
@@ -57,12 +57,10 @@ class AWSRoleManager:
     # -------------------------------------------------------------------------
     # Initialization
     # -------------------------------------------------------------------------
-    def __init__(self):
-        """Initialize STS client and credential cache."""
-        self.sts_client = boto3.client(
-            'sts',
-            region_name=settings.aws_region,
-        )
+    def __init__(self, role_provider: RoleProvider, aws_region: str):
+        """Initialize role provider and client cache."""
+        self.role_provider = role_provider
+        self.aws_region = aws_region
         self._role_sessions: Dict[str, Dict] = {}
     
     # -------------------------------------------------------------------------
@@ -88,17 +86,7 @@ class AWSRoleManager:
         Raises:
             ClientError: If role assumption fails
         """
-        try:
-            response = self.sts_client.assume_role(
-                RoleArn=role_arn,
-                RoleSessionName=session_name,
-                DurationSeconds=duration
-            )
-            logger.info(f"Assumed role {role_arn} for session {session_name}")
-            return response['Credentials']
-        except ClientError as e:
-            logger.error(f"Failed to assume role {role_arn}: {e}")
-            raise
+        return self.role_provider.assume_role(role_arn, session_name, duration)
     
     # -------------------------------------------------------------------------
     # Get Service Client
@@ -117,14 +105,12 @@ class AWSRoleManager:
         """
         credentials = self.assume_role(role_arn, session_name)
         
-        client_region = "us-east-1" if service == "ce" else settings.aws_region
+        client_region = "us-east-1" if service == "ce" else self.aws_region
 
-        return boto3.client(
+        return self.role_provider.create_client(
             service,
-            aws_access_key_id=credentials['AccessKeyId'],
-            aws_secret_access_key=credentials['SecretAccessKey'],
-            aws_session_token=credentials['SessionToken'],
-            region_name=client_region,
+            credentials,
+            client_region,
         )
     
     # -------------------------------------------------------------------------
@@ -151,9 +137,7 @@ class AWSRoleManager:
         if cache_key in self._role_sessions:
             try:
                 client = self._role_sessions[cache_key]
-                # Test with a simple call to verify credentials still valid
-                if service == 'ec2':
-                    client.describe_regions()
+                self.role_provider.validate_cached_client(service, client)
                 return client
             except ClientError:
                 # Credentials expired, remove from cache
@@ -172,6 +156,7 @@ class AWSRoleManager:
 # SINGLETON INSTANCE
 # =============================================================================
 _role_manager: Optional[AWSRoleManager] = None
+_role_provider: Optional[RoleProvider] = None
 
 
 def get_role_manager() -> AWSRoleManager:
@@ -182,8 +167,20 @@ def get_role_manager() -> AWSRoleManager:
     """
     global _role_manager
     if _role_manager is None:
-        _role_manager = AWSRoleManager()
+        if _role_provider is None:
+            raise RuntimeError("AWS role provider has not been configured")
+        _role_manager = AWSRoleManager(_role_provider, settings.aws_region)
     return _role_manager
+
+
+def configure_role_manager(
+    role_provider: RoleProvider,
+    aws_region: Optional[str] = None,
+) -> None:
+    """Wire the role manager to a concrete provider at the composition root."""
+    global _role_manager, _role_provider
+    _role_provider = role_provider
+    _role_manager = AWSRoleManager(role_provider, aws_region or settings.aws_region)
 
 
 # =============================================================================

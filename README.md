@@ -1,35 +1,39 @@
 # CloudSim
-A web-based platform that simulates core cloud infrastructure concepts like compute instances, containers, networking, and monitoring without using real cloud costs. Users can “spin up” virtual VMs, deploy sample apps, visualize network traffic, and monitor resource usage through custom backend simulation.
+
+CloudSim is a production-ready full-stack cloud infrastructure management app. It gives users an AWS-console-style workflow for authentication, role-based access, EC2-style instance launch and lifecycle control, instance details, monitoring charts, cost visibility, and admin user management.
+
+The app is built with a Vite React frontend, a FastAPI backend, PostgreSQL, and a switchable AWS service layer. In production the Vite frontend is hosted on Vercel, while the backend runs as a Render Docker web service connected to Render PostgreSQL.
 
 ## Features
 
-| Feature | Description |
+| Area | What CloudSim Provides |
 | :--- | :--- |
-| <img src="icons/cloud.svg" alt="Cloud" width="24"> **Cloud Simulation** | Simulate a cloud environment without incurring costs. |
-| <img src="icons/server.svg" alt="Server" width="24"> **Virtual Machines** | Create and manage virtual machines. |
-| <img src="icons/globe-alt.svg" alt="Network" width="24"> **Networking** | Visualize network traffic between services. |
-| <img src="icons/circle-stack.svg" alt="Storage" width="24"> **Storage** | Simulate object and block storage. |
-| <img src="icons/beaker.svg" alt="Simulation" width="24"> **Deploy & Monitor** | Deploy sample applications and monitor their performance. |
-| <img src="icons/document-text.svg" alt="Documentation" width="24"> **Documentation** | Comprehensive documentation for all features. |
+| Authentication | Email/password login, bcrypt password hashes, JWT bearer tokens, disabled-account checks |
+| Roles | `Admin`, `DevOps Engineer`, and `User` RBAC enforced by the backend |
+| Instances | Launch, list, view details, start, stop, reboot, and terminate EC2-style instances |
+| Launch Wizard | AMI, instance type, VPC, subnet, security group, public IP, and root volume options |
+| Monitoring | CPU, network, and disk metrics from CloudWatch or mock data; metrics persisted to PostgreSQL |
+| Costs | Daily and monthly cost summaries through Cost Explorer or mock estimates |
+| Admin Tools | Admin-only user list, create, update, deactivate, and delete flows |
+| Production Mode | Vercel frontend, Render backend/PostgreSQL, health checks, smoke test script, security headers, CORS config |
 
-## Backend Requirements
+## Architecture
 
-The backend is a FastAPI application and needs both Python dependencies and a running PostgreSQL database.
+CloudSim has four main runtime layers:
 
-- Python 3.14+
-- PostgreSQL 15+ running locally or reachable remotely
-- `uvicorn` for the ASGI development server
+- `frontend/`: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts, Axios.
+- `backend/`: FastAPI, SQLAlchemy, Pydantic, python-jose JWT auth, bcrypt, boto3.
+- PostgreSQL: stores users, synced instance metadata, and persisted metric snapshots.
+- AWS adapter: `CLOUDSIM_AWS_BACKEND=mock` for public demos, or `live` for EC2, CloudWatch, and Cost Explorer.
 
-Backend Python packages are listed in [backend/requirements.txt](/home/tinhc/CloudSim/backend/requirements.txt), including:
+Start with the full diagram in [docs/Architecture_Diagram.md](docs/Architecture_Diagram.md), then use [docs/WALKTHROUGH_GUIDELINE.md](docs/WALKTHROUGH_GUIDELINE.md) for a reviewer/demo walkthrough.
 
-- `fastapi`
-- `uvicorn[standard]`
-- `sqlalchemy`
-- `psycopg2-binary`
-- `pydantic` and `pydantic-settings`
-- `python-jose[cryptography]`
-- `passlib[bcrypt]`
-- `boto3`
+## Requirements
+
+- Node.js 22+
+- Python 3.14+ to match the Dockerfile and CI workflow
+- PostgreSQL 15+ for local non-Docker development
+- Docker and Docker Compose for the fastest local full-stack run
 
 ## Quick Start
 
@@ -43,17 +47,11 @@ Then open:
 
 - Frontend: http://localhost:5173
 - Backend health: http://localhost:8000/health
-- Backend API docs: http://localhost:8000/docs
+- Backend API docs in development mode: http://localhost:8000/docs
 
-The Compose stack uses a local Postgres container and creates API tables on backend startup. For live AWS calls, export the needed AWS environment variables before starting Compose, or add them to a local `.env` file used by Docker Compose.
+The Compose stack starts PostgreSQL, the FastAPI backend, and the built Vite frontend served by nginx. By default it uses `CLOUDSIM_AWS_BACKEND=mock`, so the app can be demonstrated without touching real AWS resources.
 
-To check container status, run:
-
-```bash
-docker compose ps
-```
-
-To create a local admin through the same backend-only bootstrap used in production:
+To create a local admin during startup:
 
 ```bash
 export CLOUDSIM_LOCAL_ADMIN_PASSWORD="$(openssl rand -hex 24)"
@@ -65,57 +63,30 @@ docker compose up --build
 
 Bootstrap creates the account if missing, or restores `role=Admin` and active status if it already exists. The password is preserved on later relaunches unless `CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=true` is also set.
 
-To register a regular user:
-
-```bash
-curl -X POST http://localhost:8000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"docker-test@example.com","password":"testpassword123"}'
-```
-
-To login as Admin and create another user:
-
-```bash
-ADMIN_TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=docker-admin@example.com&password=$CLOUDSIM_LOCAL_ADMIN_PASSWORD" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-
-curl -X POST http://localhost:8000/api/admin/users \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"devops-test@example.com","password":"testpassword123","role":"DevOps Engineer"}'
-```
-
-To verify all users:
-```bash
-curl http://localhost:8000/api/admin/users \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-```
-
-To shutdown, run (adding `-v` resets the Docker database):
-
-```bash
-docker compose down
-```
-
-### Backend
+### Backend Development
 
 ```bash
 cd backend
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 export DATABASE_URL="postgresql://postgres:1@localhost:5432/cloudsim"
+export CLOUDSIM_AWS_BACKEND=mock
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### Frontend
+### Frontend Development
 
 ```bash
 cd frontend
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+For local development the frontend falls back to `http://localhost:8000`. For deployed Vercel builds, set:
+
+```text
+VITE_API_URL=https://<your-backend-service>.onrender.com
 ```
 
 ## Quality Checks
@@ -137,14 +108,33 @@ npm run test
 npm run build
 ```
 
-CI runs backend tests, frontend lint/build, Compose validation, and Docker image builds on pushes and pull requests to `main`.
+CI runs backend tests, frontend lint/test/build, Compose validation, and Docker image builds on pushes and pull requests to `main`.
 
-## Deployment
+## Production Deployment
 
-Production deployment steps are documented in [docs/deployment/PRODUCTION_DEPLOYMENT.md](docs/deployment/PRODUCTION_DEPLOYMENT.md).
+Use [docs/deployment/PRODUCTION_DEPLOYMENT.md](docs/deployment/PRODUCTION_DEPLOYMENT.md) for the production deployment checklist. The recommended public demo mode is:
+
+- Backend: Render Docker web service from `backend/Dockerfile`
+- Frontend: Vercel static deployment from the Vite `frontend/dist` build
+- Database: Render PostgreSQL
+- AWS mode: `CLOUDSIM_AWS_BACKEND=mock`
+
+For live AWS operation, set `CLOUDSIM_AWS_BACKEND=live` and configure AWS credentials or role-based AssumeRole settings in the backend service only.
 
 Run a deployment smoke test with:
 
 ```bash
-BACKEND_URL=https://your-backend.example.com ./scripts/smoke_deployment.sh
+BACKEND_URL=https://<your-backend-service>.onrender.com ./scripts/smoke_deployment.sh
 ```
+
+## Documentation Map
+
+- [Walkthrough Guideline](docs/WALKTHROUGH_GUIDELINE.md)
+- [Architecture Diagram](docs/Architecture_Diagram.md)
+- [Production Deployment](docs/deployment/PRODUCTION_DEPLOYMENT.md)
+- [Production Audit](docs/deployment/PRODUCTION_AUDIT.md)
+- [Database Schema](docs/Database_Schema.md)
+- [Roles Reference](docs/ROLES_REFERENCE.md)
+- [Product Requirements / SRS](docs/CloudSim_SRS.md)
+- [Project Sprint Plan](docs/ProjectSprintPlan.csv)
+- [User Journeys](docs/user-journeys/)

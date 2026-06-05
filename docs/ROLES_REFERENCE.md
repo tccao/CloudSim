@@ -1,6 +1,6 @@
 # CloudSim Roles Reference
 
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-05-30
 
 ---
 
@@ -12,7 +12,7 @@ CloudSim uses a **3-role system** for access control:
 |------|-------------|----------|
 | **Admin** | Full access to all features | System administrators |
 | **DevOps Engineer** | Full EC2 + CloudWatch + Cost Explorer (including terminate) | DevOps teams managing infrastructure |
-| **User** | Start/Stop/Reboot/Terminate own instances + own CloudWatch data | End users |
+| **User** | Create and manage own instances, own metrics, and own scoped cost data | End users |
 
 ---
 
@@ -90,19 +90,21 @@ ec2:ModifyVpc*
 
 **Permissions:**
 - ✅ View own instances only
-- ❌ Create instances
+- ✅ Create instances
 - ✅ Start/Stop own instances
 - ✅ Reboot own instances
 - ✅ Terminate own instances
 - ✅ View CloudWatch metrics (own instances)
 - ✅ View CloudWatch alarms (own instances)
-- ❌ View Cost Explorer data
+- ✅ View Cost Explorer data scoped to own `CreatedBy` resources when Cost Explorer is enabled
 - ❌ Manage users
 
 **AWS Actions:**
 ```
 ec2:DescribeInstances
 ec2:DescribeInstanceStatus
+ec2:RunInstances
+ec2:CreateTags
 ec2:StartInstances (own only)
 ec2:StopInstances (own only)
 ec2:RebootInstances (own only)
@@ -111,18 +113,23 @@ cloudwatch:GetMetricData (own instances)
 cloudwatch:GetMetricStatistics (own instances)
 cloudwatch:ListMetrics
 cloudwatch:DescribeAlarms (own instances)
+ce:GetCostAndUsage (own tag filter)
+ce:GetCostForecast (own tag filter)
 ```
 
 **Explicit Denies:**
 ```
-ec2:RunInstances
-ce:*
+iam:*
+ec2:CreateVpc
+ec2:DeleteVpc
+ec2:ModifyVpc*
 ```
 
 **Instance Isolation:**
 - Users can only see instances tagged with `CreatedBy=<their_user_id>`
 - Backend enforces this filter automatically
 - CloudWatch data is filtered to own instances only
+- Cost data is filtered through the `CreatedBy` cost allocation tag in live mode, and by owned mock instances in mock mode
 
 ---
 
@@ -141,6 +148,10 @@ CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
 ---
 
 ## Role Mapping Flow
+
+In `CLOUDSIM_AWS_BACKEND=mock`, AWS calls are replaced by the local mock service.
+In live mode with `ENABLE_ROLE_BASED_ACCESS=false`, the STS step is skipped and
+the default backend AWS client is used.
 
 ```mermaid
 sequenceDiagram
@@ -172,12 +183,12 @@ sequenceDiagram
 |--------|-------|-----------------|------|
 | View all instances | ✅ | ✅ | ❌ |
 | View own instances | ✅ | ✅ | ✅ |
-| Create instances | ✅ | ✅ | ❌ |
+| Create instances | ✅ | ✅ | ✅ |
 | Start/Stop | ✅ All | ✅ All | ✅ Own only |
 | Reboot | ✅ | ✅ | ✅ Own only |
 | Terminate instances | ✅ | ✅ | ✅ Own only |
 | View metrics | ✅ | ✅ | ✅ Own only |
-| View costs | ✅ | ✅ | ❌ |
+| View costs | ✅ | ✅ | ✅ Own only |
 | Manage users | ✅ | ❌ | ❌ |
 
 ---
@@ -239,7 +250,7 @@ export type UserRole = 'Admin' | 'DevOps Engineer' | 'User' | null;
 
 ## API Examples
 
-### Create Instance (DevOps Engineer or Admin only)
+### Create Instance (Any Authenticated Role)
 
 ```bash
 curl -X POST http://localhost:8000/api/ec2/instances \
@@ -254,12 +265,13 @@ curl -X POST http://localhost:8000/api/ec2/instances \
 **Response:**
 - ✅ Admin: Success
 - ✅ DevOps Engineer: Success
-- ❌ User: 403 Forbidden
+- ✅ User: Success for their own instance
 
 ---
 
 ## See Also
 
-- [IAM_Setup_Guide.md](./IAM_Setup_Guide.md) - Complete IAM setup instructions
-- [VPC_Setup_Guide.md](./VPC_Setup_Guide.md) - VPC configuration
-- [Architecture_Manual.md](./Architecture_Manual.md) - System architecture
+- [IAM_Setup_Guide.md](setup-guides/IAM_Setup_Guide.md) - Complete IAM setup instructions
+- [VPC_Setup_Guide.md](setup-guides/VPC_Setup_Guide.md) - VPC configuration
+- [Architecture_Diagram.md](Architecture_Diagram.md) - System architecture
+- [WALKTHROUGH_GUIDELINE.md](WALKTHROUGH_GUIDELINE.md) - Production walkthrough

@@ -35,6 +35,8 @@ from .admin_routes import router as admin_router
 from .ec2_routes import router as ec2_router
 from .db import engine, Base
 from .bootstrap import bootstrap_admin_user
+from .aws_role_manager import configure_role_manager
+from .role_providers import AwsRoleProvider
 
 
 # =============================================================================
@@ -91,6 +93,8 @@ async def lifespan(app: FastAPI):
 # =============================================================================
 # APPLICATION SETUP
 # =============================================================================
+configure_role_manager(AwsRoleProvider(region_name=settings.aws_region), settings.aws_region)
+
 app = FastAPI(
     title="CloudSim API",
     version="1.0.0",

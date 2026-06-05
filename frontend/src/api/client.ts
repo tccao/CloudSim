@@ -13,7 +13,7 @@ import axios from 'axios';
 // VITE_API_URL:
 //   In development → undefined → falls back to localhost:8000
 //   In production  → set to https://your-backend.onrender.com
-//   Set in Vercel dashboard under Environment Variables.
+//   Set in the Vercel project environment variables.
 // ---------------------------------------------------------------------------
 
 const TOKEN_KEY = 'cloudsim_access_token';
@@ -65,4 +65,3 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
-

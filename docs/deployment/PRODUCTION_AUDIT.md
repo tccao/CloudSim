@@ -1,8 +1,8 @@
 # CloudSim Production Audit
 
 Audit scope: backend auth/RBAC, frontend token handling, AWS access paths,
-Docker/Render/Vite deployment config, dependency health, script redundancy, and
-secret/demo credential exposure.
+Docker/Vercel/Render/Vite deployment config, dependency health, script
+redundancy, and secret/demo credential exposure.
 
 ## Findings
 
@@ -60,7 +60,9 @@ secret/demo credential exposure.
   `CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED`, `CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL`,
   `CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD`, and optionally
   `CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD`.
-- Keep Vite limited to public settings such as `VITE_API_URL`.
+- Deploy the Vite frontend on Vercel; keep Vite limited to public settings such
+  as `VITE_API_URL`. `frontend/Dockerfile` remains available for local Compose
+  and container validation.
 - Re-run Docker validation after changing Dockerfiles, Compose, or dependency
   manifests.
 - Run the admin smoke check after deployment:
