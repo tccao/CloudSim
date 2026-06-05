@@ -10,7 +10,7 @@ The production hardening audit is tracked in [PRODUCTION_AUDIT.md](PRODUCTION_AU
 
 ## 1. Preflight
 
-Run these checks from the repository root before deploying:
+Run these checks from the repository root before deploying. The Docker Compose steps are for local validation only and are not required for Render/Vercel production deployment.
 
 ```bash
 cd backend
@@ -18,13 +18,22 @@ source venv/bin/activate
 python -m pytest
 
 cd ../frontend
+npm ci
 npm run lint
 npm run test
 npm run build
 
 cd ..
 docker compose config
-docker compose build backend frontend
+docker compose pull db
+docker compose build db backend frontend
+docker compose up --build -d
+docker compose ps
+# Inspect logs while needed:
+docker compose logs -f
+# Stop and remove containers when finished:
+docker compose down
+# add -v to remove anonymous volumes if you want a clean reset
 ```
 
 ## 2. Database On Render
@@ -62,6 +71,13 @@ CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL=<admin-email>
 CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
 CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=false
 ```
+Generate a secure secret key and copy it into `SECRET_KEY`:
+
+```bash
+openssl rand -hex 32
+```
+
+The backend validator enforces a minimum 32-character `SECRET_KEY` in production.
 
 `CLOUDSIM_AWS_BACKEND=mock` is the recommended public demo setting. It stores virtual instances in PostgreSQL and returns synthetic metrics/costs without calling EC2, CloudWatch, or Cost Explorer.
 
@@ -124,7 +140,11 @@ Set frontend environment variables:
 VITE_API_URL=https://<your-backend-service>.onrender.com
 ```
 
-Vite only exposes environment variables that begin with `VITE_`. Do not put admin bootstrap settings, database URLs, JWT secrets, or AWS credentials in the frontend service.
+Notes:
+- `VITE_API_URL` must point to the Render backend service URL.
+- Do not include a trailing slash.
+- Vite only exposes environment variables that begin with `VITE_`.
+- Do not put admin bootstrap settings, database URLs, JWT secrets, or AWS credentials in the frontend service.
 
 After changing `VITE_API_URL`, redeploy the frontend so the value is baked into the static bundle.
 
@@ -138,19 +158,21 @@ VITE_API_URL=https://<your-backend-service>.onrender.com
 
 ## 6. CORS Checklist
 
-Backend `ALLOWED_ORIGINS` must include the exact frontend URL:
+Backend webapp `ALLOWED_ORIGINS` must include the exact frontend URL:
 
 ```text
 ALLOWED_ORIGINS=https://<your-frontend-domain>.vercel.app
 ```
 
-For multiple origins, use commas:
+If you use Vercel preview deployments, include them as well:
 
 ```text
 ALLOWED_ORIGINS=https://<your-frontend-domain>.vercel.app,https://<preview-domain>.vercel.app
 ```
 
-Do not use a wildcard with credentials enabled.
+Do not use a wildcard (`*`) when `allow_credentials=True`.
+
+If authentication appears to fail after a successful backend response, the most likely cause is a mismatched frontend origin in `ALLOWED_ORIGINS`.
 
 ## 7. Smoke Test
 
