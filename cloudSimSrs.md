@@ -87,7 +87,7 @@ CloudSim is a fullstack web application with:
 - Single-developer velocity
 
 ### 2.5 Assumptions & Dependencies
-- Valid AWS credentials configured only for live AWS mode (see `IAM_Setup_Guide.md`)
+- Valid AWS credentials configured only for live AWS mode (see `iamSetupGuide.md`)
 - PostgreSQL database available locally or via managed service
 - Node.js 22+ and Python 3.14+ installed for local parity with CI/Docker
 
@@ -390,7 +390,7 @@ Retrieved in real-time via boto3:
 
 ### 9.1 Component Diagram
 
-See `docs/Architecture_Diagram.md` for the full Mermaid diagram with numbered flows. A simplified text view:
+See `architectureDiagram.md` for the full Mermaid diagram with numbered flows. A simplified text view:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

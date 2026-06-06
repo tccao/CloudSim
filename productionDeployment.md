@@ -6,7 +6,7 @@ This guide deploys CloudSim with the production hosting split used by the app:
 - Backend API: FastAPI Docker web service on Render
 - Database: Render PostgreSQL
 
-The production hardening audit is tracked in [PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md).
+The production hardening audit is tracked in [productionAudit.md](docs/productionAudit.md).
 
 ## 1. Preflight
 

@@ -10,6 +10,17 @@ Dockerized FastAPI API on Render, and Render PostgreSQL. The backend can run in
 safe PostgreSQL-backed mock mode for a public demo or in live mode against AWS
 EC2, CloudWatch, Cost Explorer, and optional STS AssumeRole sessions.
 
+## Documentation
+
+- [Production Architecture](architectureDiagram.md)
+- [Production Walkthrough](docs/walkthroughGuideline.md)
+- [Roles and Permissions](rolesReference.md)
+- [Production Deployment](productionDeployment.md)
+- [Production Audit](docs/productionAudit.md)
+- [Database Schema](databaseSchema.md)
+- [Product Requirements / SRS](cloudSimSrs.md)
+- [User Journeys](user-journeys/)
+
 ## Implemented Scope
 
 | Area | Production Behavior |
@@ -59,7 +70,7 @@ Important runtime rules:
 - Application RBAC and ownership checks remain enforced by FastAPI in both
   backend modes.
 
-See [docs/Architecture_Diagram.md](docs/Architecture_Diagram.md) for the full
+See [architectureDiagram.md](architectureDiagram.md) for the full
 component and request-flow diagram.
 
 ## Configuration Modes
@@ -151,8 +162,8 @@ Use `live` only when the backend has intentionally configured AWS credentials,
 IAM permissions, and cost controls. Keep database credentials, JWT secrets, AWS
 credentials, and admin bootstrap values on the backend only.
 
-Follow [docs/deployment/PRODUCTION_DEPLOYMENT.md](docs/deployment/PRODUCTION_DEPLOYMENT.md)
-for the deployment checklist. Validate a deployment with:
+Follow [productionDeployment.md](productionDeployment.md) for the deployment
+checklist. Validate a deployment with:
 
 ```bash
 BACKEND_URL=https://<your-backend-service>.onrender.com \
@@ -179,14 +190,3 @@ docker compose config
 
 GitHub Actions runs backend tests, frontend lint/test/build, Compose validation,
 and both Docker image builds on pushes and pull requests to `main`.
-
-## Documentation
-
-- [Production Architecture](docs/Architecture_Diagram.md)
-- [Production Walkthrough](docs/WALKTHROUGH_GUIDELINE.md)
-- [Roles and Permissions](docs/ROLES_REFERENCE.md)
-- [Production Deployment](docs/deployment/PRODUCTION_DEPLOYMENT.md)
-- [Production Audit](docs/deployment/PRODUCTION_AUDIT.md)
-- [Database Schema](docs/Database_Schema.md)
-- [Product Requirements / SRS](docs/CloudSim_SRS.md)
-- [User Journeys](docs/user-journeys/)
