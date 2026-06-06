@@ -1,25 +1,44 @@
-# CloudSim Walkthrough Guideline
+# CloudSim Production Walkthrough
 
-Use this guide to demo or review the finished CloudSim app in production mode.
+Use this guide to demo or review the final CloudSim production app. The
+recommended public-demo configuration is the Vercel frontend, Render FastAPI
+backend, Render PostgreSQL, and `CLOUDSIM_AWS_BACKEND=mock`.
 
-## Audience
+## What Is Live In The Demo
 
-This walkthrough is written for instructors, reviewers, teammates, and portfolio viewers who need to understand what the app does without reading the code first.
+Use these labels while presenting so the reviewer can distinguish implemented
+backend behavior from visual product direction.
+
+| Surface | Final Behavior |
+| :--- | :--- |
+| Login, registration, session validation | API-backed |
+| Instance table and lifecycle actions | API-backed |
+| Launch options and instance creation | API-backed |
+| Instance details | API-backed |
+| CPU, network, and disk monitoring | API-backed; metric history is persisted |
+| Cost charts | API-backed in mock/live mode, but the UI falls back to static demo values if the request fails |
+| Admin user list, create, delete | API-backed |
+| Admin role/status update | Backend API exists; current UI does not expose it |
+| Dashboard alarms, zone health, resource summary | Presentation-only static data |
+| Monitoring memory, system logs, export | Presentation-only |
+| IAM audit logs and advanced settings | Presentation-only; changes are not persisted |
 
 ## Preflight
 
-Before starting the walkthrough, confirm:
+Confirm before presenting:
 
 - Frontend URL loads over HTTPS.
-- Backend health returns `{"status":"healthy"}` at `/health`.
-- Backend `ALLOWED_ORIGINS` includes the exact frontend URL.
-- Frontend was built with `VITE_API_URL` pointing to the backend URL.
-- An admin account exists through backend bootstrap or admin-created credentials.
-- `CLOUDSIM_AWS_BACKEND` is set intentionally:
-  - `mock` for a safe public demo.
-  - `live` for real AWS EC2, CloudWatch, and Cost Explorer.
+- `GET <backend-url>/health` returns a healthy response.
+- `ALLOWED_ORIGINS` includes the exact frontend origin.
+- The Vercel build uses the correct `VITE_API_URL`.
+- An Admin account exists through backend bootstrap or an existing Admin.
+- `CLOUDSIM_AWS_BACKEND` is intentionally set to `mock` or `live`.
+- For live mode, AWS credentials, permissions, region, Cost Explorer flag, and
+  optional role mapping have been validated.
+- For an honest cost demo, verify the cost requests succeed in browser network
+  tools; the monitoring UI otherwise uses fallback demo values.
 
-Optional command check:
+Optional deployment check:
 
 ```bash
 BACKEND_URL=https://<your-backend-service>.onrender.com \
@@ -28,39 +47,49 @@ SMOKE_AUTH=1 \
 ./scripts/smoke_deployment.sh
 ```
 
-## Demo Path
+## Recommended Demo Path
 
-### 1. Open The App
+### 1. Open The Production App
 
-Open the Vercel frontend URL. The first screen should be the CloudSim login modal. Explain that the frontend is a Vite static build and the API URL is baked in through `VITE_API_URL`.
+Open the Vercel frontend URL. Explain:
+
+- Vercel serves the static React/Vite bundle.
+- The browser calls the Render FastAPI URL directly.
+- `VITE_API_URL` is public build-time configuration; backend secrets never
+  belong in Vite variables.
 
 Reference screenshots:
 
 - `docs/images/user/01-login-empty.png`
 - `docs/images/user/02-login-credentials.png`
 
-### 2. Sign In
+### 2. Register Or Sign In
 
-Sign in as an existing user. After login, the top bar shows the user email and role badge. The dashboard loads through `GET /api/ec2/instances`.
+The login modal supports both sign-in and public registration. Public
+registration always creates a standard `User`.
 
-What to call out:
+After sign-in, point out the email and role badge. Explain:
 
-- Passwords are verified server-side with bcrypt.
-- The backend returns a JWT bearer token.
-- The frontend Axios client attaches the token to later requests.
-- The backend revalidates the current user on every protected route.
+- The backend verifies bcrypt password hashes.
+- Login returns an expiring JWT stored in browser `localStorage`.
+- The JWT contains the email subject, while the current role is reloaded from
+  PostgreSQL on every protected request.
+- The shared Axios client attaches the bearer token and clears it after a `401`.
 
-### 3. Dashboard Overview
+### 3. Show The Dashboard
 
-Show the account overview cards and instance table.
+The instance table and its refresh/start/stop/reboot/terminate actions are
+API-backed through `/api/ec2/instances`.
 
-What to call out:
+Explain:
 
-- Admin and DevOps users can see all instances.
-- Standard users only see instances they created.
-- The dashboard actions call backend lifecycle endpoints, not local-only state.
-- In mock mode, instance state is stored in PostgreSQL.
-- In live mode, actions call AWS EC2 through boto3.
+- Admin and DevOps Engineer accounts see all returned instances.
+- User accounts see only owned instances.
+- Mock mode stores virtual instance state in PostgreSQL and never calls AWS.
+- Live mode sends lifecycle operations to EC2 through boto3.
+
+Be explicit that the alarms, availability-zone health, and resource-usage
+summary cards below the table are presentation-only static data.
 
 Reference screenshots:
 
@@ -70,19 +99,22 @@ Reference screenshots:
 
 ### 4. Launch An Instance
 
-Click `Launch Instance` and walk through the four-step wizard:
+Click `Launch Instance` and show the four steps:
 
 1. Name and AMI.
 2. Instance type.
-3. VPC, subnet, security group, public IP, storage.
+3. VPC, subnet, security group, public IP, and storage.
 4. Review and launch.
 
-What to call out:
+Explain:
 
-- Launch options come from `/api/ec2/launch-options`.
-- New instances are tagged or stored with CloudSim ownership metadata.
-- `t2.*` instance types are intentionally constrained for cost control.
-- Mock mode is safe for public demos because it does not call AWS.
+- The wizard requests options from `/api/ec2/launch-options`.
+- The backend restricts launches to the supported `t2.*` types.
+- All authenticated roles can launch.
+- Ownership is recorded with `created_by_user_id` in mock mode and
+  `CreatedBy=<user_id>` tags in live mode.
+- Mock launch is safe for a public demo; live launch creates a real billable EC2
+  instance and EBS volume.
 
 Reference screenshots:
 
@@ -90,9 +122,9 @@ Reference screenshots:
 - `docs/images/user/05-launch-step2-instance-type.png`
 - `docs/images/user/06-launch-step4-review.png`
 
-### 5. Instance Details
+### 5. Inspect Instance Details
 
-Click an instance name from the dashboard and review the details page tabs:
+Click an instance name and show:
 
 - Details
 - Security
@@ -100,11 +132,9 @@ Click an instance name from the dashboard and review the details page tabs:
 - Storage
 - Tags
 
-What to call out:
-
-- Details are fetched from `GET /api/ec2/instances/{instance_id}`.
-- Security groups, VPC/subnet, DNS, EBS volume, and tags are shown in separate tabs.
-- Action buttons reuse the same protected lifecycle endpoints as the dashboard.
+Explain that `GET /api/ec2/instances/{instance_id}` returns the normalized
+detail contract in both modes. The action buttons call the same protected
+lifecycle endpoints used by the dashboard.
 
 Reference screenshots:
 
@@ -114,17 +144,25 @@ Reference screenshots:
 - `docs/images/user/11-instance-storage-tab.png`
 - `docs/images/user/12-instance-tags-tab.png`
 
-### 6. Monitoring
+### 6. Show Monitoring And Costs
 
-Open the Monitoring tab, select an instance, and switch between CPU, memory, network, disk, and cost tabs.
+Open Monitoring, select an instance, change the time period, and refresh.
 
-What to call out:
+API-backed behavior:
 
-- CPU, network, and disk data come from CloudWatch in live mode.
-- Mock mode produces synthetic time-series data for demos.
-- Metric datapoints are persisted into the `metrics` table idempotently.
-- Memory and some log-style panels are presentation placeholders for future CloudWatch Agent or Logs integration.
-- Cost summaries come from Cost Explorer in live mode when enabled, or mock estimates in demo mode.
+- CPU, network, disk read, and disk write series come from the selected backend.
+- Mock mode generates deterministic synthetic series.
+- Live mode reads EC2 metrics from CloudWatch.
+- Metric history responses are written idempotently to the PostgreSQL `metrics`
+  table.
+- Mock costs are estimates based on visible mock instances.
+- Live costs come from Cost Explorer only when `ENABLE_COST_EXPLORER=true`.
+
+Presentation-only behavior:
+
+- Memory chart and system logs are static examples.
+- Export has no implemented action.
+- The UI uses static fallback cost values if cost requests fail.
 
 Reference screenshots:
 
@@ -133,25 +171,24 @@ Reference screenshots:
 - `docs/images/user/15-monitoring-network.png`
 - `docs/images/user/16-monitoring-disk.png`
 
-### 7. IAM And Settings
+### 7. Show IAM And Settings As Admin
 
 Open `IAM & Settings`.
 
-For Admin:
+API-backed behavior:
 
-- Show the current user card.
-- Show the user management table.
-- Create a new user with a selected role.
-- Explain that admin bootstrap is backend-only and never exposed through Vite.
+- Current user card reflects `/api/auth/me`.
+- Admin sees the user table from `GET /api/admin/users`.
+- Admin can create a user with a selected role.
+- Admin can delete another user.
+- The backend API also supports role and active-status updates, although the
+  current UI does not expose those controls.
 
-For DevOps Engineer:
+Presentation-only behavior:
 
-- Show that user management is hidden.
-- Show operational settings that DevOps can view or adjust in the UI.
-
-For User:
-
-- Show read-oriented role permissions and disabled advanced settings.
+- Recent audit logs are labeled mock data.
+- Resource quotas, auto scaling, and notification settings are not persisted.
+- DevOps Engineer and User accounts do not see Admin user management.
 
 Reference screenshots:
 
@@ -162,36 +199,61 @@ Reference screenshots:
 - `docs/images/user/17-iam-settings-overview.png`
 - `docs/images/user/18-iam-settings-advanced.png`
 
-### 8. Role Isolation
+### 8. Prove Role Isolation
 
-To demonstrate isolation, log out and log in as a different standard user. The dashboard should show only that user's own instances.
+Log out and sign in as a different standard User. Show that the instance list
+contains only that account's resources.
 
-What to call out:
+Explain:
 
-- The UI reflects role state, but the backend enforces the actual permissions.
-- A user cannot view or manage another user's instance through direct API calls.
-- Admin and DevOps have cross-user operational visibility.
+- Frontend visibility improves the experience, but FastAPI enforces permissions.
+- Direct requests for another user's details, lifecycle actions, or metrics
+  receive `403`.
+- Admin and DevOps Engineer have cross-user operational access.
+- In optional live role-based mode, IAM policies add a second authorization
+  boundary through STS AssumeRole.
 
 Reference screenshot:
 
 - `docs/images/user/19-user2-dashboard.png`
 
-## Reviewer Script
+### 9. Close With The Production Architecture
 
-Use this short version when time is limited:
+Open [Architecture_Diagram.md](Architecture_Diagram.md) and summarize:
 
-1. Login and show the role badge.
-2. Open the dashboard and refresh the instance list.
+1. Vercel serves the static frontend.
+2. The browser sends bearer-authenticated HTTPS requests directly to Render.
+3. FastAPI reloads users/roles from PostgreSQL and enforces RBAC.
+4. The service facade selects PostgreSQL-backed mock behavior or live boto3.
+5. PostgreSQL stores users, instance metadata/ownership, and metric snapshots.
+6. GitHub Actions validates tests, builds, Compose, and Docker images.
+
+## Five-Minute Reviewer Script
+
+1. Sign in and show the role badge.
+2. Refresh the API-backed instance table and perform one lifecycle action.
 3. Launch a mock instance through the four-step wizard.
-4. Open details and show the five instance tabs.
-5. Open monitoring and show CPU/network/disk charts.
-6. Open IAM as Admin and create a user.
-7. Explain `mock` versus `live` backend mode and the Vercel + Render deployment shape.
+4. Open details and show the normalized detail tabs.
+5. Open monitoring and distinguish API-backed charts from presentation panels.
+6. Open IAM as Admin and create or delete a user.
+7. Explain role isolation and the mock/live production architecture.
 
-## Documentation Cross-References
+## Final Validation Checklist
 
-- Architecture: [Architecture_Diagram.md](Architecture_Diagram.md)
-- Deployment: [deployment/PRODUCTION_DEPLOYMENT.md](deployment/PRODUCTION_DEPLOYMENT.md)
-- Roles: [ROLES_REFERENCE.md](ROLES_REFERENCE.md)
-- Database: [Database_Schema.md](Database_Schema.md)
-- User journeys: [user-journeys/](user-journeys/)
+- Login and optional public registration work.
+- Refreshing the page restores and validates the stored session.
+- Admin and DevOps Engineer see all instances; User sees owned instances only.
+- Launch, details, start, stop, reboot, and terminate call the backend.
+- Monitoring CPU/network/disk requests succeed and persist datapoints.
+- Mock/live and presentation-only surfaces are described accurately.
+- Admin can list, create, and delete users in the UI.
+- Non-Admin calls to `/api/admin/users` return `403`.
+- `/health`, CORS, and deployed API URL are correct.
+
+## Related Documentation
+
+- [Architecture](Architecture_Diagram.md)
+- [Roles](ROLES_REFERENCE.md)
+- [Deployment](deployment/PRODUCTION_DEPLOYMENT.md)
+- [Database](Database_Schema.md)
+- [User journeys](user-journeys/)

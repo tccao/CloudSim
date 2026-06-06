@@ -1,32 +1,77 @@
 # CloudSim
 
-CloudSim is a production-ready full-stack cloud infrastructure management app. It gives users an AWS-console-style workflow for authentication, role-based access, EC2-style instance launch and lifecycle control, instance details, monitoring charts, cost visibility, and admin user management.
+CloudSim is a production-oriented cloud infrastructure management app with an
+AWS-console-style interface. It combines first-party authentication, three
+application roles, EC2-style instance lifecycle controls, monitoring, cost
+visibility, and admin user management.
 
-The app is built with a Vite React frontend, a FastAPI backend, PostgreSQL, and a switchable AWS service layer. In production the Vite frontend is hosted on Vercel, while the backend runs as a Render Docker web service connected to Render PostgreSQL.
+The final production topology is a Vite/React static frontend on Vercel, a
+Dockerized FastAPI API on Render, and Render PostgreSQL. The backend can run in
+safe PostgreSQL-backed mock mode for a public demo or in live mode against AWS
+EC2, CloudWatch, Cost Explorer, and optional STS AssumeRole sessions.
 
-## Features
+## Implemented Scope
 
-| Area | What CloudSim Provides |
+| Area | Production Behavior |
 | :--- | :--- |
-| Authentication | Email/password login, bcrypt password hashes, JWT bearer tokens, disabled-account checks |
-| Roles | `Admin`, `DevOps Engineer`, and `User` RBAC enforced by the backend |
-| Instances | Launch, list, view details, start, stop, reboot, and terminate EC2-style instances |
-| Launch Wizard | AMI, instance type, VPC, subnet, security group, public IP, and root volume options |
-| Monitoring | CPU, network, and disk metrics from CloudWatch or mock data; metrics persisted to PostgreSQL |
-| Costs | Daily and monthly cost summaries through Cost Explorer or mock estimates |
-| Admin Tools | Admin-only user list, create, update, deactivate, and delete flows |
-| Production Mode | Vercel frontend, Render backend/PostgreSQL, health checks, smoke test script, security headers, CORS config |
+| Authentication | Public registration, email/password login, bcrypt hashes, expiring JWT bearer tokens, disabled-account checks |
+| Roles | `Admin`, `DevOps Engineer`, and `User`; the backend reloads the current database user and role on every protected request |
+| Instances | List, launch, details, start, stop, reboot, and terminate; standard users are restricted to instances they created |
+| Launch Wizard | API-backed AMI, instance type, VPC, subnet, security group, public IP, and root-volume options |
+| Monitoring | API-backed CPU, network, and disk metrics; returned datapoints are persisted to PostgreSQL |
+| Costs | PostgreSQL-backed estimates in mock mode or Cost Explorer data in live mode when enabled |
+| Admin | Admin UI lists, creates, and deletes users; the admin API also supports role/status updates |
+| Deployment | Vercel frontend, Render Docker backend, Render PostgreSQL, CORS/security headers, health checks, smoke tests, and CI validation |
 
-## Architecture
+Some visible panels are presentation-only in the final UI: dashboard alarms,
+zone health, resource-usage summaries, monitoring memory/logs, export, IAM audit
+logs, and advanced settings. They do not currently persist changes or call a
+production API.
 
-CloudSim has four main runtime layers:
+## Production Architecture
 
-- `frontend/`: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts, Axios.
-- `backend/`: FastAPI, SQLAlchemy, Pydantic, python-jose JWT auth, bcrypt, boto3.
-- PostgreSQL: stores users, synced instance metadata, and persisted metric snapshots.
-- AWS adapter: `CLOUDSIM_AWS_BACKEND=mock` for public demos, or `live` for EC2, CloudWatch, and Cost Explorer.
+```text
+Browser
+  |-- loads static React app --------------------------> Vercel
+  `-- sends HTTPS API requests with a bearer token ---> Render FastAPI
+                                                           |
+                         +---------------------------------+------------------+
+                         |                                                    |
+                         v                                                    v
+                  Render PostgreSQL                              AWS service facade
+                  users / instances / metrics                    |             |
+                                                                 v             v
+                                                        mock adapter       live boto3
+                                                        PostgreSQL         EC2 / CW / CE
+                                                                             |
+                                                                     optional STS roles
+```
 
-Start with the full diagram in [docs/Architecture_Diagram.md](docs/Architecture_Diagram.md), then use [docs/WALKTHROUGH_GUIDELINE.md](docs/WALKTHROUGH_GUIDELINE.md) for a reviewer/demo walkthrough.
+Important runtime rules:
+
+- The browser calls the Render API directly; Vercel does not proxy API traffic.
+- The JWT contains the user email as its subject. The backend loads the current
+  user and role from PostgreSQL for every protected request.
+- `CLOUDSIM_AWS_BACKEND=mock` never calls AWS. Virtual instances live in
+  PostgreSQL and metrics/costs are generated safely for demos.
+- `CLOUDSIM_AWS_BACKEND=live` uses boto3. `ENABLE_ROLE_BASED_ACCESS=true`
+  additionally maps CloudSim roles to IAM roles through STS AssumeRole.
+- Application RBAC and ownership checks remain enforced by FastAPI in both
+  backend modes.
+
+See [docs/Architecture_Diagram.md](docs/Architecture_Diagram.md) for the full
+component and request-flow diagram.
+
+## Configuration Modes
+
+| Setting | Behavior |
+| :--- | :--- |
+| `CLOUDSIM_AWS_BACKEND=mock` | Recommended public production demo; PostgreSQL-backed virtual instances, synthetic metrics, estimated costs, no AWS calls |
+| `CLOUDSIM_AWS_BACKEND=live` | Real EC2 lifecycle, CloudWatch metrics, and optional Cost Explorer |
+| `ENABLE_ROLE_BASED_ACCESS=false` | Live mode uses the backend service's shared boto3 credential chain |
+| `ENABLE_ROLE_BASED_ACCESS=true` | Live mode assumes the IAM role mapped to the current CloudSim role |
+| `ENABLE_COST_EXPLORER=false` | Live cost endpoints return a configuration error; mock cost estimates still work |
+| `ENABLE_COST_EXPLORER=true` | Live cost endpoints query Cost Explorer |
 
 ## Requirements
 
@@ -49,7 +94,8 @@ Then open:
 - Backend health: http://localhost:8000/health
 - Backend API docs in development mode: http://localhost:8000/docs
 
-The Compose stack starts PostgreSQL, the FastAPI backend, and the built Vite frontend served by nginx. By default it uses `CLOUDSIM_AWS_BACKEND=mock`, so the app can be demonstrated without touching real AWS resources.
+Compose starts PostgreSQL, FastAPI, and the built Vite app served by nginx. It
+uses `CLOUDSIM_AWS_BACKEND=mock` by default.
 
 To create a local admin during startup:
 
@@ -61,7 +107,9 @@ CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD="$CLOUDSIM_LOCAL_ADMIN_PASSWORD" \
 docker compose up --build
 ```
 
-Bootstrap creates the account if missing, or restores `role=Admin` and active status if it already exists. The password is preserved on later relaunches unless `CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=true` is also set.
+Bootstrap creates the account if missing, or restores `role=Admin` and active
+status if it already exists. It preserves an existing password unless
+`CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=true`.
 
 ### Backend Development
 
@@ -83,58 +131,62 @@ npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-For local development the frontend falls back to `http://localhost:8000`. For deployed Vercel builds, set:
+Local frontend development falls back to `http://localhost:8000`. Vercel builds
+must set:
 
 ```text
 VITE_API_URL=https://<your-backend-service>.onrender.com
 ```
 
-## Quality Checks
+## Production Deployment
 
-Backend:
+The recommended public production deployment is:
+
+- Frontend: Vercel static deployment from `frontend/dist`
+- Backend: Render Docker web service from `backend/Dockerfile`
+- Database: Render PostgreSQL
+- AWS mode: `CLOUDSIM_AWS_BACKEND=mock`
+
+Use `live` only when the backend has intentionally configured AWS credentials,
+IAM permissions, and cost controls. Keep database credentials, JWT secrets, AWS
+credentials, and admin bootstrap values on the backend only.
+
+Follow [docs/deployment/PRODUCTION_DEPLOYMENT.md](docs/deployment/PRODUCTION_DEPLOYMENT.md)
+for the deployment checklist. Validate a deployment with:
+
+```bash
+BACKEND_URL=https://<your-backend-service>.onrender.com \
+FRONTEND_URL=https://<your-frontend-domain>.vercel.app \
+SMOKE_AUTH=1 \
+./scripts/smoke_deployment.sh
+```
+
+## Quality Checks
 
 ```bash
 cd backend
 source venv/bin/activate
 python -m pytest
-```
 
-Frontend:
-
-```bash
-cd frontend
+cd ../frontend
 npm run lint
 npm run test
 npm run build
+
+cd ..
+docker compose config
 ```
 
-CI runs backend tests, frontend lint/test/build, Compose validation, and Docker image builds on pushes and pull requests to `main`.
+GitHub Actions runs backend tests, frontend lint/test/build, Compose validation,
+and both Docker image builds on pushes and pull requests to `main`.
 
-## Production Deployment
+## Documentation
 
-Use [docs/deployment/PRODUCTION_DEPLOYMENT.md](docs/deployment/PRODUCTION_DEPLOYMENT.md) for the production deployment checklist. The recommended public demo mode is:
-
-- Backend: Render Docker web service from `backend/Dockerfile`
-- Frontend: Vercel static deployment from the Vite `frontend/dist` build
-- Database: Render PostgreSQL
-- AWS mode: `CLOUDSIM_AWS_BACKEND=mock`
-
-For live AWS operation, set `CLOUDSIM_AWS_BACKEND=live` and configure AWS credentials or role-based AssumeRole settings in the backend service only.
-
-Run a deployment smoke test with:
-
-```bash
-BACKEND_URL=https://<your-backend-service>.onrender.com ./scripts/smoke_deployment.sh
-```
-
-## Documentation Map
-
-- [Walkthrough Guideline](docs/WALKTHROUGH_GUIDELINE.md)
-- [Architecture Diagram](docs/Architecture_Diagram.md)
+- [Production Architecture](docs/Architecture_Diagram.md)
+- [Production Walkthrough](docs/WALKTHROUGH_GUIDELINE.md)
+- [Roles and Permissions](docs/ROLES_REFERENCE.md)
 - [Production Deployment](docs/deployment/PRODUCTION_DEPLOYMENT.md)
 - [Production Audit](docs/deployment/PRODUCTION_AUDIT.md)
 - [Database Schema](docs/Database_Schema.md)
-- [Roles Reference](docs/ROLES_REFERENCE.md)
 - [Product Requirements / SRS](docs/CloudSim_SRS.md)
-- [Project Sprint Plan](docs/ProjectSprintPlan.csv)
 - [User Journeys](docs/user-journeys/)

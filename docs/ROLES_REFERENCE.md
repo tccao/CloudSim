@@ -1,277 +1,192 @@
 # CloudSim Roles Reference
 
-**Last Updated:** 2026-05-30
+Last updated: June 6, 2026
 
----
+CloudSim has three application roles: `Admin`, `DevOps Engineer`, and `User`.
+The authoritative role is stored on the PostgreSQL `users` row.
 
-## Role Structure
+The login JWT contains only the user's email as its subject. On every protected
+request, FastAPI decodes that email and reloads the current user, role, and
+active status from PostgreSQL. Role changes, deactivation, and deletion
+therefore take effect on the next API request.
 
-CloudSim uses a **3-role system** for access control:
+## Effective Authorization
 
-| Role | Permissions | Use Case |
-|------|-------------|----------|
-| **Admin** | Full access to all features | System administrators |
-| **DevOps Engineer** | Full EC2 + CloudWatch + Cost Explorer (including terminate) | DevOps teams managing infrastructure |
-| **User** | Create and manage own instances, own metrics, and own scoped cost data | End users |
+Effective access depends on three layers:
 
----
+1. Application RBAC and ownership checks in FastAPI.
+2. The selected service mode: `mock` or `live`.
+3. In live mode, the permissions of the shared backend credentials or optional
+   STS-assumed IAM role.
 
-## Detailed Permissions
+AWS IAM does not replace backend authorization. When role-based AWS access is
+enabled, effective access is the intersection of CloudSim's route checks and the
+mapped IAM policy.
 
-### Admin Role
+## Application Permission Matrix
 
-**IAM Role:** `CloudSimAdminRole`  
-**IAM Policy:** `CloudSimAdminPolicy`
+| Action | Admin | DevOps Engineer | User |
+| :--- | :---: | :---: | :---: |
+| Register through public signup | Yes, but new account is always `User` | Yes, but new account is always `User` | Yes |
+| View instance list | All visible instances | All visible instances | Owned instances only |
+| View instance details | Any instance | Any instance | Owned instances only |
+| Load launch options | Yes | Yes | Yes |
+| Launch instance | Yes | Yes | Yes, owned by the current user |
+| Start / stop / reboot / terminate | Any instance | Any instance | Owned instances only |
+| View CPU / network / disk metrics | Any instance | Any instance | Owned instances only |
+| View costs | Full scope | Full scope | Owned/scoped costs |
+| List / create / update / deactivate / delete users through admin API | Yes | No | No |
 
-**Permissions:**
-- ✅ View all instances
-- ✅ Create instances
-- ✅ Start/Stop/Reboot all instances
-- ✅ Terminate instances
-- ✅ View CloudWatch metrics
-- ✅ View Cost Explorer data
-- ✅ Manage all users
+All instance, metric, cost, launch-option, and admin endpoints require an active
+authenticated user. Disabled users receive `403`; invalid, expired, or deleted
+user sessions receive `401`.
 
-**AWS Actions:**
-```
-ec2:*
-cloudwatch:*
-ce:*
-```
+## Role Details
 
----
+### Admin
 
-### DevOps Engineer Role
+Application behavior:
 
-**IAM Role:** `CloudSimDevOpsRole`  
-**IAM Policy:** `CloudSimDevOpsPolicy`
+- Can view and operate on every instance returned by the selected backend.
+- Can view metrics and costs across the selected backend scope.
+- Can call every `/api/admin/users` endpoint.
+- Cannot disable or delete their own account through the admin API.
 
-**Permissions:**
-- ✅ View all instances
-- ✅ Create instances
-- ✅ Start/Stop/Reboot all instances
-- ✅ Terminate all instances
-- ✅ View CloudWatch metrics
-- ✅ View Cost Explorer data
-- ❌ Manage users
+Final UI behavior:
 
-**AWS Actions:**
-```
-ec2:Describe*
-ec2:RunInstances
-ec2:StartInstances
-ec2:StopInstances
-ec2:RebootInstances
-ec2:TerminateInstances
-ec2:CreateTags
-cloudwatch:GetMetricStatistics
-cloudwatch:GetMetricData
-cloudwatch:ListMetrics
-cloudwatch:DescribeAlarms
-cloudwatch:PutMetricAlarm
-cloudwatch:DeleteAlarms
-ce:GetCostAndUsage
-ce:GetCostForecast
-```
+- IAM panel shows the user table.
+- Can create users with any of the three roles.
+- Can delete other users.
+- Role/status update is supported by the backend API but is not exposed by the
+  current IAM panel.
 
-**Explicit Denies:**
-```
-ec2:CreateVpc
-ec2:DeleteVpc
-ec2:ModifyVpc*
-```
+### DevOps Engineer
 
----
+Application behavior:
 
-### User Role
+- Can view and operate on every instance returned by the selected backend.
+- Can launch and terminate instances.
+- Can view metrics and costs across the selected backend scope.
+- Cannot call `/api/admin/users`.
 
-**IAM Role:** `CloudSimUserRole`  
-**IAM Policy:** `CloudSimUserPolicy`
+Final UI behavior:
 
-**Permissions:**
-- ✅ View own instances only
-- ✅ Create instances
-- ✅ Start/Stop own instances
-- ✅ Reboot own instances
-- ✅ Terminate own instances
-- ✅ View CloudWatch metrics (own instances)
-- ✅ View CloudWatch alarms (own instances)
-- ✅ View Cost Explorer data scoped to own `CreatedBy` resources when Cost Explorer is enabled
-- ❌ Manage users
+- Can use the same instance, details, and monitoring controls as Admin.
+- IAM user management is hidden.
+- Advanced settings controls are presentation-only and are not persisted.
 
-**AWS Actions:**
-```
-ec2:DescribeInstances
-ec2:DescribeInstanceStatus
-ec2:RunInstances
-ec2:CreateTags
-ec2:StartInstances (own only)
-ec2:StopInstances (own only)
-ec2:RebootInstances (own only)
-ec2:TerminateInstances (own only)
-cloudwatch:GetMetricData (own instances)
-cloudwatch:GetMetricStatistics (own instances)
-cloudwatch:ListMetrics
-cloudwatch:DescribeAlarms (own instances)
-ce:GetCostAndUsage (own tag filter)
-ce:GetCostForecast (own tag filter)
+### User
+
+Application behavior:
+
+- Can launch instances.
+- Can list, view, start, stop, reboot, terminate, and monitor only owned
+  instances.
+- Receives owned/scoped cost data.
+- Cannot call `/api/admin/users`.
+
+Ownership enforcement:
+
+- Live mode tags launched instances and volumes with `CreatedBy=<user_id>`,
+  `CreatedByEmail=<email>`, and `ManagedBy=CloudSim`.
+- Mock mode stores ownership in `instances.created_by_user_id` and exposes it
+  through the same `CreatedBy` tag contract.
+- List, detail, lifecycle, and metric routes enforce ownership in FastAPI.
+- Mock costs are calculated from visible owned mock instances.
+- Live Cost Explorer requests use a `CreatedBy` tag filter for `User` accounts.
+  The AWS cost allocation tag must be available for that filter to return data.
+
+## Admin Account Paths
+
+### Public registration
+
+`POST /api/auth/register` is enabled in the final app and always creates an
+active `User` account. It cannot create Admin or DevOps Engineer accounts.
+
+### Admin-created users
+
+An Admin can create a user with any valid role through:
+
+```text
+POST /api/admin/users
 ```
 
-**Explicit Denies:**
-```
-iam:*
-ec2:CreateVpc
-ec2:DeleteVpc
-ec2:ModifyVpc*
-```
+### Production bootstrap
 
-**Instance Isolation:**
-- Users can only see instances tagged with `CreatedBy=<their_user_id>`
-- Backend enforces this filter automatically
-- CloudWatch data is filtered to own instances only
-- Cost data is filtered through the `CreatedBy` cost allocation tag in live mode, and by owned mock instances in mock mode
-
----
-
-## Development Demo Accounts
-
-The optional local seed script creates demo users for walkthroughs only. Do not
-use those accounts in production. Production admin access should come from the
-backend-only startup bootstrap:
+The backend can create or restore the first production admin during startup:
 
 ```text
 CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true
 CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL=<admin-email>
 CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
+CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=false
 ```
 
----
+Bootstrap settings belong on the backend only. Existing passwords are preserved
+unless reset is explicitly enabled.
 
-## Role Mapping Flow
+## Optional Live AWS Role Mapping
 
-In `CLOUDSIM_AWS_BACKEND=mock`, AWS calls are replaced by the local mock service.
-In live mode with `ENABLE_ROLE_BASED_ACCESS=false`, the STS step is skipped and
-the default backend AWS client is used.
+Role mapping is used only when both conditions are true:
 
-```mermaid
-sequenceDiagram
-    participant User as CloudSim User
-    participant Backend as Backend
-    participant DB as Database
-    participant STS as AWS STS
-    participant AWS as AWS Services
-
-    User->>Backend: Login (email/password)
-    Backend->>DB: Verify credentials
-    DB->>Backend: Return user + role
-    Backend->>User: JWT token (includes role)
-    
-    User->>Backend: API Request (with JWT)
-    Backend->>Backend: Extract role from JWT
-    Backend->>STS: AssumeRole(role ARN)
-    STS->>Backend: Temporary credentials
-    Backend->>AWS: API call with temp creds
-    AWS->>Backend: Response
-    Backend->>User: Result
-```
-
----
-
-## Permission Matrix
-
-| Action | Admin | DevOps Engineer | User |
-|--------|-------|-----------------|------|
-| View all instances | ✅ | ✅ | ❌ |
-| View own instances | ✅ | ✅ | ✅ |
-| Create instances | ✅ | ✅ | ✅ |
-| Start/Stop | ✅ All | ✅ All | ✅ Own only |
-| Reboot | ✅ | ✅ | ✅ Own only |
-| Terminate instances | ✅ | ✅ | ✅ Own only |
-| View metrics | ✅ | ✅ | ✅ Own only |
-| View costs | ✅ | ✅ | ✅ Own only |
-| Manage users | ✅ | ❌ | ❌ |
-
----
-
-## Migration Notes
-
-### Removed: Developer Role
-
-**Previous structure (4 roles):**
-- Admin
-- **Developer** ← REMOVED
-- DevOps Engineer
-- User
-
-**Why removed:**
-- Simplified role structure
-- DevOps Engineer role covers the use case
-- Easier to understand and maintain
-
-**If you have existing Developer users:**
-1. Update their role in the database to `DevOps Engineer`
-2. They will automatically get the new permissions on next login
-
-```sql
--- Migration SQL
-UPDATE users 
-SET role = 'DevOps Engineer' 
-WHERE role = 'Developer';
-```
-
----
-
-## Backend Configuration
-
-Add these to `/home/tinhc/CloudSim/backend/.env`:
-
-```bash
-# Enable role-based access
+```text
+CLOUDSIM_AWS_BACKEND=live
 ENABLE_ROLE_BASED_ACCESS=true
-
-# IAM Role ARNs
-AWS_ROLE_ADMIN=arn:aws:iam::096615316348:role/CloudSimAdminRole
-AWS_ROLE_DEVOPS=arn:aws:iam::096615316348:role/CloudSimDevOpsRole
-AWS_ROLE_READONLY=arn:aws:iam::096615316348:role/CloudSimUserRole
 ```
 
-**Note:** `AWS_ROLE_DEVELOPER` is no longer used and can be removed.
+| CloudSim Role | Backend Setting | Typical IAM Role |
+| :--- | :--- | :--- |
+| Admin | `AWS_ROLE_ADMIN` | `CloudSimAdminRole` |
+| DevOps Engineer | `AWS_ROLE_DEVOPS` | `CloudSimDevOpsRole` |
+| User | `AWS_ROLE_READONLY` | `CloudSimUserRole` |
 
----
+The backend calls STS AssumeRole and caches clients by user, role ARN, and AWS
+service. Cost Explorer clients are created in `us-east-1`; EC2 and CloudWatch
+clients use `AWS_REGION`.
 
-## Frontend Role Types
+When `ENABLE_ROLE_BASED_ACCESS=false`, live mode uses the backend service's
+shared boto3 credential chain. FastAPI role and ownership checks still apply.
 
-```typescript
-// frontend/src/contexts/UserContext.tsx
-export type UserRole = 'Admin' | 'DevOps Engineer' | 'User' | null;
-```
+### Live IAM policy requirements
 
----
+IAM policies must support the routes each CloudSim role is expected to use.
+For example, because the application lets all authenticated roles launch
+instances, a mapped `User` IAM role must allow the required EC2 launch, tag,
+image, VPC, subnet, security-group, and volume describe actions if that behavior
+should work in live role-based mode.
 
-## API Examples
+Use [setup-guides/IAM_Setup_Guide.md](setup-guides/IAM_Setup_Guide.md) as a
+starting point, then validate its policies against this application matrix
+before enabling live role-based production access.
 
-### Create Instance (Any Authenticated Role)
+## API Enforcement Reference
 
-```bash
-curl -X POST http://localhost:8000/api/ec2/instances \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "my-instance",
-    "instance_type": "t2.nano"
-  }'
-```
+| API Group | Enforcement |
+| :--- | :--- |
+| `/api/auth/register` | Public; creates `User` role |
+| `/api/auth/login` | Public credential check; rejects disabled accounts |
+| `/api/auth/me` | Any active authenticated user |
+| `/api/admin/users*` | `require_admin()` dependency |
+| `/api/ec2/instances*` | Active user plus role/ownership checks |
+| `/api/ec2/launch-options` | Any active authenticated user |
+| `/api/ec2/instances/{id}/metrics*` | Active user plus ownership check |
+| `/api/ec2/costs/*` | Any active authenticated user; service layer scopes `User` costs |
 
-**Response:**
-- ✅ Admin: Success
-- ✅ DevOps Engineer: Success
-- ✅ User: Success for their own instance
+## Role Verification
 
----
+Create a standard account through registration, then use an Admin to create a
+DevOps Engineer account. Verify:
+
+1. Admin sees all instances and the IAM user-management table.
+2. DevOps Engineer sees all instances but no user-management table.
+3. User sees only instances tagged/stored with their user ID.
+4. Direct API requests from User to another user's detail, lifecycle, or metric
+   endpoint receive `403`.
+5. Direct non-Admin requests to `/api/admin/users` receive `403`.
 
 ## See Also
 
-- [IAM_Setup_Guide.md](setup-guides/IAM_Setup_Guide.md) - Complete IAM setup instructions
-- [VPC_Setup_Guide.md](setup-guides/VPC_Setup_Guide.md) - VPC configuration
-- [Architecture_Diagram.md](Architecture_Diagram.md) - System architecture
-- [WALKTHROUGH_GUIDELINE.md](WALKTHROUGH_GUIDELINE.md) - Production walkthrough
+- [Architecture_Diagram.md](Architecture_Diagram.md)
+- [WALKTHROUGH_GUIDELINE.md](WALKTHROUGH_GUIDELINE.md)
+- [setup-guides/IAM_Setup_Guide.md](setup-guides/IAM_Setup_Guide.md)
+- [deployment/PRODUCTION_DEPLOYMENT.md](deployment/PRODUCTION_DEPLOYMENT.md)

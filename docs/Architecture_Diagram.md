@@ -1,134 +1,195 @@
-# CloudSim Reference Architecture
+# CloudSim Production Architecture
 
-This diagram reflects the finished production app: a Vite React frontend, a FastAPI backend, PostgreSQL, and a switchable AWS adapter. The production hosting split is Vercel for the frontend and Render for the backend web service plus managed PostgreSQL.
+This is the canonical architecture diagram for the final CloudSim production
+app. It documents the Vercel/Render deployment, the browser-to-API boundary,
+PostgreSQL responsibilities, backend-enforced RBAC, and the switchable mock/live
+AWS service layer.
 
-## Architecture Diagram
+## System Diagram
 
 ```mermaid
-flowchart TD
-    USER["User Browser"]
+flowchart LR
+    PERSON["CloudSim user"]
 
-    subgraph CI["GitHub Actions"]
-        GH["GitHub Repository"]
-        TESTS["Backend Tests + Frontend Lint/Test/Build"]
-        DOCKER["Compose Validation + Docker Image Builds"]
-        GH --> TESTS --> DOCKER
+    subgraph DELIVERY["Source and validation"]
+        REPO["GitHub repository"]
+        CI["GitHub Actions<br/>backend tests<br/>frontend lint/test/build<br/>Compose validation<br/>Docker image builds"]
+        REPO --> CI
     end
 
-    subgraph FRONTEND["Vercel Static Site - Vite Frontend"]
-        VITE["React 18 + TypeScript + Vite"]
-        AXIOS["Axios API Client"]
-        AUTHCTX["UserContext + localStorage JWT"]
-        UI["Dashboard / Details / Monitoring / IAM"]
-        VITE --> UI
-        UI --> AXIOS
+    subgraph VERCEL["Vercel - static frontend"]
+        SPA["React 18 + TypeScript + Vite"]
+        SHELL["Login / Dashboard / Details<br/>Monitoring / IAM / Launch Wizard"]
+        AUTHCTX["UserContext<br/>localStorage JWT"]
+        AXIOS["Shared Axios client<br/>VITE_API_URL + bearer interceptor"]
+        SPA --> SHELL
+        SHELL --> AXIOS
         AUTHCTX --> AXIOS
     end
 
-    subgraph BACKEND["Render Docker Web Service - FastAPI Backend"]
-        HEALTH["/health"]
-        SEC["Security Headers Middleware"]
-        CORS["CORS Middleware"]
-        AUTH["auth_routes.py"]
-        RBAC["get_current_user() + require_admin()"]
-        EC2R["ec2_routes.py"]
-        ADMIN["admin_routes.py"]
-        AWSFACADE["aws_service.py facade"]
-        MOCK["mock_aws_service.py"]
-        LIVE["boto3 live clients"]
+    subgraph RENDER["Render - Docker web service"]
+        EDGE["FastAPI app<br/>CORS + security headers + /health"]
+        AUTH["/api/auth<br/>register / login / me"]
+        ADMIN["/api/admin/users<br/>Admin-only CRUD"]
+        EC2API["/api/ec2<br/>instances / launch options<br/>metrics / costs"]
+        GUARD["Authentication + RBAC<br/>load current user from DB<br/>ownership checks"]
+        FACADE["aws_service.py facade"]
+        MOCK["PostgreSQL-backed mock adapter"]
+        LIVE["Lazy boto3 live adapter"]
 
-        SEC --> CORS
-        CORS --> AUTH
-        CORS --> EC2R
-        CORS --> ADMIN
-        AUTH --> RBAC
-        EC2R --> RBAC
-        ADMIN --> RBAC
-        EC2R --> AWSFACADE
-        AWSFACADE --> MOCK
-        AWSFACADE --> LIVE
+        EDGE --> AUTH
+        EDGE --> ADMIN
+        EDGE --> EC2API
+        AUTH --> GUARD
+        ADMIN --> GUARD
+        EC2API --> GUARD
+        EC2API --> FACADE
+        FACADE -->|"CLOUDSIM_AWS_BACKEND=mock"| MOCK
+        FACADE -->|"CLOUDSIM_AWS_BACKEND=live"| LIVE
     end
 
-    subgraph DB["PostgreSQL - Render or Local"]
-        USERS[("users")]
-        INSTANCES[("instances")]
-        METRICS[("metrics")]
+    subgraph POSTGRES["Render PostgreSQL"]
+        USERS[("users<br/>credentials / roles / status")]
+        INSTANCES[("instances<br/>mock state / synced metadata / ownership")]
+        METRICS[("metrics<br/>persisted metric datapoints")]
     end
 
-    subgraph AWS["AWS Cloud - live mode only"]
-        STS["STS AssumeRole"]
-        EC2["EC2"]
-        CW["CloudWatch"]
-        CE["Cost Explorer"]
+    subgraph AWS["AWS - live mode only"]
+        STS["STS AssumeRole<br/>optional"]
+        EC2["EC2<br/>instances / AMIs / network / volumes"]
+        CW["CloudWatch<br/>CPU / network / disk metrics"]
+        CE["Cost Explorer<br/>daily / monthly costs"]
     end
 
-    USER -->|"1 load app"| VITE
-    AXIOS -->|"2 POST /api/auth/login"| AUTH
-    AUTH -->|"3 verify bcrypt hash"| USERS
-    AUTH -->|"4 return JWT"| AUTHCTX
-    AXIOS -->|"5 Bearer token API calls"| SEC
-    RBAC -->|"6 load current user"| USERS
-    ADMIN -->|"7 user CRUD"| USERS
-    MOCK -->|"8 demo instances/costs/metrics"| INSTANCES
-    MOCK -->|"9 synthetic metrics persisted"| METRICS
-    LIVE -->|"10 optional role assumption"| STS
-    LIVE -->|"11 lifecycle + details"| EC2
-    LIVE -->|"12 metrics"| CW
-    LIVE -->|"13 costs"| CE
-    EC2R -->|"14 sync instance metadata"| INSTANCES
-    EC2R -->|"15 persist CloudWatch datapoints"| METRICS
+    PERSON -->|"1. load app"| SPA
+    AXIOS -->|"2. direct HTTPS requests"| EDGE
+    AUTH -->|"3. credentials and current user"| USERS
+    GUARD -->|"4. reload role and active status"| USERS
+    ADMIN -->|"5. user management"| USERS
+    EC2API -->|"6. sync live metadata"| INSTANCES
+    EC2API -->|"7. persist returned metrics"| METRICS
+    MOCK -->|"8. virtual instance state and ownership"| INSTANCES
+    MOCK -->|"9. generate metrics and cost estimates"| EC2API
+    LIVE -->|"10a. shared backend credentials when role access is off"| EC2
+    LIVE -->|"10b. role-mapped temporary clients when role access is on"| STS
+    STS --> EC2
+    STS --> CW
+    STS --> CE
+    LIVE --> EC2
+    LIVE --> CW
+    LIVE --> CE
 ```
 
-## Flow Legend
+The browser calls the Render API directly using the URL baked into the Vite
+bundle as `VITE_API_URL`. Vercel serves static files and does not proxy the API.
 
-| # | Flow | Description |
-|---|---|---|
-| 1 | Browser to frontend | User opens the Vercel static site. The Vite bundle was built with `VITE_API_URL` pointing at the Render backend service. |
-| 2 | Login | The login form submits OAuth2 form data to `POST /api/auth/login`. |
-| 3 | Credential check | FastAPI loads the user from PostgreSQL and verifies the submitted password against the bcrypt hash. |
-| 4 | JWT return | The backend returns a signed bearer token. The frontend stores it in `localStorage` and validates it with `/api/auth/me`. |
-| 5 | Authenticated API calls | The shared Axios client attaches `Authorization: Bearer <token>` to protected requests. |
-| 6 | RBAC | `get_current_user()` validates the JWT, rejects inactive users, and gives route handlers the current user role. |
-| 7 | Admin user management | Admin-only routes list, create, update, and delete users through `/api/admin/users`. |
-| 8 | Mock AWS mode | `CLOUDSIM_AWS_BACKEND=mock` uses PostgreSQL-backed virtual instances and synthetic metrics/costs for safe demos. |
-| 9 | Mock metric history | Synthetic metric responses are still persisted to the `metrics` table through the same route side effect. |
-| 10 | Live AWS role assumption | If `ENABLE_ROLE_BASED_ACCESS=true`, the backend assumes the IAM role mapped to the CloudSim user role. |
-| 11 | EC2 operations | Live mode calls EC2 for list, detail, launch, start, stop, reboot, and terminate operations. |
-| 12 | CloudWatch metrics | Live mode reads CPU, network, and disk metrics through CloudWatch. |
-| 13 | Cost Explorer | Live mode reads daily and monthly cost summaries when `ENABLE_COST_EXPLORER=true`. |
-| 14 | Instance sync | Instance summaries are upserted into PostgreSQL for ownership and fast dashboard reads. |
-| 15 | Metrics persistence | Metric datapoints are written idempotently by `instance_id + metric_name + recorded_at`. |
+## Request Flows
+
+### Authentication
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Vercel React app
+    participant API as Render FastAPI
+    participant DB as PostgreSQL users
+
+    User->>UI: Register or sign in
+    UI->>API: POST /api/auth/register or /api/auth/login
+    API->>DB: Create user or verify bcrypt hash
+    API-->>UI: JWT bearer token
+    UI->>UI: Store token in localStorage
+    UI->>API: GET /api/auth/me with bearer token
+    API->>DB: Decode email subject, reload user/role/status
+    DB-->>API: Current user record
+    API-->>UI: id, email, role, active status
+```
+
+The JWT contains the user's email in `sub`; it does not contain the authoritative
+role. Every protected route reloads the current user from PostgreSQL, so role,
+active-status, and deletion changes take effect without waiting for a new token.
+
+### Instance And Monitoring Request
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as React UI
+    participant Route as FastAPI EC2 route
+    participant DB as PostgreSQL
+    participant Facade as AWS service facade
+    participant Provider as Mock adapter or AWS
+
+    User->>UI: List, launch, act, or open monitoring
+    UI->>Route: Bearer-authenticated /api/ec2 request
+    Route->>DB: Load current user
+    Route->>Facade: Operation with role and user id
+    Facade->>Provider: Dispatch by CLOUDSIM_AWS_BACKEND
+    Provider-->>Facade: Instance, metric, or cost data
+    Facade-->>Route: Normalized response
+    Route->>Route: Enforce ownership for User role
+    Route->>DB: Sync instance metadata or persist metrics
+    Route-->>UI: JSON response
+```
 
 ## Component Responsibilities
 
-| Component | Technology | Responsibility |
-|---|---|---|
-| Frontend static site | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui | Authenticated shell, dashboard, launch wizard, details tabs, monitoring, IAM/settings UI |
-| API client | Axios | Base URL from `VITE_API_URL`, JWT request interceptor, global 401 logout event |
-| Backend service | FastAPI, Uvicorn, Docker | API routing, security headers, CORS, startup table creation, admin bootstrap |
-| Authentication | bcrypt, python-jose JWT | Password hashing, login, token creation, current-user dependency |
-| RBAC | FastAPI dependencies | Admin-only user management and role-aware instance visibility/action checks |
-| AWS facade | `aws_service.py` | One interface for mock mode and live boto3 mode |
-| Mock AWS backend | `mock_aws_service.py` | Safe production demo mode backed by PostgreSQL and synthetic metric/cost generation |
-| Live AWS backend | boto3, optional STS AssumeRole | EC2 lifecycle, CloudWatch metrics, Cost Explorer summaries |
-| Database | PostgreSQL, SQLAlchemy ORM | `users`, `instances`, and `metrics` tables |
-| CI | GitHub Actions | Backend tests, frontend lint/test/build, Compose validation, Docker image build checks |
-| Production hosting | Vercel + Render | Vercel static frontend, Render Docker backend, Render PostgreSQL, environment variables, health checks |
+| Component | Responsibility |
+| :--- | :--- |
+| Vercel static frontend | Serves the React SPA; renders auth, dashboard, launch, details, monitoring, and IAM experiences |
+| `UserContext` and Axios client | Stores the JWT, validates it through `/api/auth/me`, attaches bearer headers, and clears invalid sessions on `401` |
+| Render FastAPI service | Owns API routing, request validation, CORS, security headers, health checks, startup table creation, and admin bootstrap |
+| Auth and admin routes | Register/login/current-user flow and Admin-only user management |
+| EC2 routes | Backend RBAC, ownership checks, normalized instance operations, metadata sync, metric persistence, and cost endpoints |
+| AWS service facade | Selects mock or live behavior without changing the route contract |
+| Mock adapter | Uses PostgreSQL for virtual instances and generates deterministic demo metrics and estimated costs; never calls AWS |
+| Live boto3 adapter | Calls EC2, CloudWatch, and optional Cost Explorer; optionally obtains role-mapped clients through STS |
+| PostgreSQL | Stores users, mock instance state/ownership, synced live instance metadata, and metric snapshots |
+| GitHub Actions | Validates backend, frontend, Compose, and Docker builds; it does not define runtime request flow |
 
-## Deployment Shape
+## Data Ownership
 
-| Service | Platform | Build / Runtime |
-|---|---|---|
-| Frontend | Vercel Static Site | Root `frontend`, build `npm run build`, output `dist` |
-| Backend | Render Docker Web Service | `backend/Dockerfile`, health check `/health`, port from Render `PORT` |
-| Database | Render PostgreSQL | `DATABASE_URL` set on backend service |
+| Data | Production Source Of Truth | PostgreSQL Use |
+| :--- | :--- | :--- |
+| Users, roles, active status | PostgreSQL | Authoritative |
+| Mock instances | PostgreSQL | Authoritative |
+| Live instances | AWS EC2 | Synced summary/cache; ownership remains in AWS `CreatedBy` tags |
+| CPU/network/disk metrics | Mock generator or CloudWatch | Persisted after the metrics history endpoint returns data |
+| Mock costs | Calculated from visible mock instances | Instances provide calculation input |
+| Live costs | Cost Explorer | Returned to the UI; not persisted |
+| Dashboard alarms/zones/resource summaries | Static frontend presentation data | Not persisted |
+| Memory, system logs, audit logs, advanced settings | Static/local frontend presentation data | Not persisted |
 
-## Modes
+## Application Authorization
 
-| Mode | Setting | Use Case |
-|---|---|---|
-| Mock | `CLOUDSIM_AWS_BACKEND=mock` | Public demos, portfolio deployment, safe review environments |
-| Live | `CLOUDSIM_AWS_BACKEND=live` | Real EC2, CloudWatch, and Cost Explorer integration |
+- `Admin`: all instances and admin user-management API.
+- `DevOps Engineer`: all instance, metric, and cost operations; no admin API.
+- `User`: can launch instances and access only owned instances, metrics, and
+  scoped costs.
+- Live instances carry `CreatedBy=<user_id>` and `ManagedBy=CloudSim` tags.
+- Mock ownership is stored as `instances.created_by_user_id` and exposed through
+  the same `CreatedBy` tag contract.
+- In live mode, optional IAM role policies add a second authorization boundary.
+  Effective access is the intersection of FastAPI checks and AWS IAM policy.
 
-Document version: 2.0
-Last updated: May 2026
+## Deployment And Feature Flags
+
+| Service | Production Target | Required Configuration |
+| :--- | :--- | :--- |
+| Frontend | Vercel static site | Root `frontend`, build `npm run build`, output `dist`, `VITE_API_URL` |
+| Backend | Render Docker web service | Root `backend`, `backend/Dockerfile`, `/health`, Render `PORT` |
+| Database | Render PostgreSQL | Internal `DATABASE_URL` on the backend |
+
+| Flag | Effect |
+| :--- | :--- |
+| `CLOUDSIM_AWS_BACKEND=mock` | PostgreSQL-backed demo resources; no AWS calls |
+| `CLOUDSIM_AWS_BACKEND=live` | Real AWS service calls |
+| `ENABLE_ROLE_BASED_ACCESS=true` | Live boto3 clients use role-mapped STS sessions |
+| `ENABLE_ROLE_BASED_ACCESS=false` | Live boto3 clients use the backend credential chain |
+| `ENABLE_COST_EXPLORER=true` | Enables live Cost Explorer endpoints |
+| `CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true` | Creates or restores the configured backend-only admin at startup |
+
+Document version: 3.0
+Last updated: June 6, 2026
