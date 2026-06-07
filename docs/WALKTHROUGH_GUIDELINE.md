@@ -4,15 +4,28 @@ Use this guide to demo or review the final CloudSim production app. The
 recommended public-demo configuration is the Vercel frontend, Render FastAPI
 backend, Render PostgreSQL, and `CLOUDSIM_AWS_BACKEND=mock`.
 
+## Review Goal
+
+For a senior SWE review, organize the walkthrough around four boundaries:
+
+1. **Deployment:** static frontend on Vercel, API and policy enforcement on
+   Render, and PostgreSQL as the application database.
+2. **Identity and authorization:** JWT authentication, database-backed current
+   user lookup, application RBAC, and ownership checks.
+3. **Provider abstraction:** one route contract backed by either the mock
+   adapter or live AWS services.
+4. **Data ownership:** which system is authoritative and which writes are
+   caches, snapshots, or presentation-only data.
+
 ## What Is Live In The Demo
 
 | Surface | Final Behavior |
 | :--- | :--- |
-| Login, registration, session validation | API-backed |
+| Login, registration, session validation | API-backed; registration creates the user, then the frontend logs in to obtain a JWT |
 | Instance table and lifecycle actions | API-backed |
 | Launch options and instance creation | API-backed |
 | Instance details | API-backed |
-| CPU, network, and disk monitoring | API-backed; metric history is persisted |
+| CPU, network, and disk monitoring | API-backed; history responses are persisted, current/latest responses are not |
 | Cost charts | API-backed in mock/live mode, but the UI falls back to static demo values if the request fails |
 | Admin user list, create, delete | API-backed |
 | Admin role/status update | Backend API exists; current UI does not expose it |
@@ -63,12 +76,14 @@ Reference screenshots:
 ### 2. Register Or Sign In
 
 The login modal supports both sign-in and public registration. Public
-registration always creates a standard `User`.
+registration always creates a standard `User`, then the frontend automatically
+submits a login request.
 
 After sign-in, point out the email and role badge. Explain:
 
 - The backend verifies bcrypt password hashes.
-- Login returns an expiring JWT stored in browser `localStorage`.
+- Registration returns the created user record; login returns the expiring JWT
+  stored in browser `localStorage`.
 - The JWT contains the email subject, while the current role is reloaded from
   PostgreSQL on every protected request.
 - The shared Axios client attaches the bearer token and clears it after a `401`.
@@ -82,6 +97,8 @@ Explain:
 
 - Admin and DevOps Engineer accounts see all returned instances.
 - User accounts see only owned instances.
+- The list route fetches provider data, syncs the returned summaries to
+  PostgreSQL, and then filters the response for a standard User.
 - Mock mode stores virtual instance state in PostgreSQL and never calls AWS.
 - Live mode sends lifecycle operations to EC2 through boto3.
 
@@ -131,7 +148,9 @@ Click an instance name and show:
 
 Explain that `GET /api/ec2/instances/{instance_id}` returns the normalized
 detail contract in both modes. The action buttons call the same protected
-lifecycle endpoints used by the dashboard.
+lifecycle endpoints used by the dashboard. For a standard User, detail requests
+are checked after the provider fetch; lifecycle actions first resolve the target
+instance to verify ownership and then perform the requested action.
 
 Reference screenshots:
 
@@ -150,10 +169,12 @@ API-backed behavior:
 - CPU, network, disk read, and disk write series come from the selected backend.
 - Mock mode generates deterministic synthetic series.
 - Live mode reads EC2 metrics from CloudWatch.
-- Metric history responses are written idempotently to the PostgreSQL `metrics`
-  table.
+- The metrics-history route verifies ownership, fetches metrics, writes
+  datapoints idempotently to PostgreSQL, and then responds.
+- The current/latest metrics route does not persist datapoints.
 - Mock costs are estimates based on visible mock instances.
 - Live costs come from Cost Explorer only when `ENABLE_COST_EXPLORER=true`.
+- Regular-user cost scoping is applied inside the selected provider.
 
 Presentation-only behavior:
 
@@ -204,6 +225,8 @@ contains only that account's resources.
 Explain:
 
 - Frontend visibility improves the experience, but FastAPI enforces permissions.
+- Every protected route decodes the email subject and reloads the current user,
+  role, and active status from PostgreSQL.
 - Direct requests for another user's details, lifecycle actions, or metrics
   receive `403`.
 - Admin and DevOps Engineer have cross-user operational access.
@@ -222,18 +245,44 @@ Open [Architecture_Diagram.md](Architecture_Diagram.md) and summarize:
 2. The browser sends bearer-authenticated HTTPS requests directly to Render.
 3. FastAPI reloads users/roles from PostgreSQL and enforces RBAC.
 4. The service facade selects PostgreSQL-backed mock behavior or live boto3.
-5. PostgreSQL stores users, instance metadata/ownership, and metric snapshots.
+5. PostgreSQL is authoritative for users and mock instances; live instance
+   summaries are a list-triggered cache, and metric history is stored as
+   snapshots.
 6. GitHub Actions validates tests, builds, Compose, and Docker images.
+
+## Senior SWE Discussion Points
+
+Be prepared to explain these design choices and limitations:
+
+- **Why reload the user on protected requests?** The JWT identifies the user,
+  while PostgreSQL remains authoritative for role and active status. Role,
+  disable, and deletion changes therefore take effect without issuing a new
+  token.
+- **Why use a provider facade?** Routes and frontend contracts remain stable
+  across mock and live modes. The trade-off is that both provider paths still
+  need dedicated integration and authorization tests.
+- **Why keep live instance rows in PostgreSQL?** They provide a local summary
+  cache, but AWS EC2 remains authoritative. The cache is refreshed only by list
+  requests and is not a continuously synchronized inventory.
+- **Why persist metrics?** It creates local history and supports future analysis.
+  Persistence currently occurs as a side effect of metrics-history reads.
+- **What are the main production gaps?** JWTs are stored in `localStorage`,
+  database startup uses `Base.metadata.create_all()` rather than versioned
+  migrations, and mock/live behavior is selected for the whole backend rather
+  than per tenant.
 
 ## Five-Minute Reviewer Script
 
-1. Sign in and show the role badge.
-2. Refresh the API-backed instance table and perform one lifecycle action.
-3. Launch a mock instance through the four-step wizard.
-4. Open details and show the normalized detail tabs.
-5. Open monitoring and distinguish API-backed charts from presentation panels.
-6. Open IAM as Admin and create or delete a user.
-7. Explain role isolation and the mock/live production architecture.
+1. Start with the architecture diagram and state the four system boundaries.
+2. Sign in and explain the JWT plus database-backed current-user lookup.
+3. Refresh the instance table and perform one ownership-protected lifecycle
+   action.
+4. Launch a mock instance and explain the stable provider contract.
+5. Open details and monitoring; distinguish authoritative data, cached
+   summaries, persisted snapshots, and presentation-only panels.
+6. Open IAM as Admin and prove backend-enforced role isolation.
+7. Close with the mock/live switch, optional STS defense in depth, and known
+   production trade-offs.
 
 ## Final Validation Checklist
 
@@ -241,7 +290,8 @@ Open [Architecture_Diagram.md](Architecture_Diagram.md) and summarize:
 - Refreshing the page restores and validates the stored session.
 - Admin and DevOps Engineer see all instances; User sees owned instances only.
 - Launch, details, start, stop, reboot, and terminate call the backend.
-- Monitoring CPU/network/disk requests succeed and persist datapoints.
+- Monitoring history requests succeed and persist datapoints; current/latest
+  requests are not described as persisted.
 - Mock/live and presentation-only surfaces are described accurately.
 - Admin can list, create, and delete users in the UI.
 - Non-Admin calls to `/api/admin/users` return `403`.

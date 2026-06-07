@@ -32,15 +32,15 @@ flowchart LR
         AUTH["/api/auth<br/>register / login / me"]
         ADMIN["/api/admin/users<br/>Admin-only CRUD"]
         EC2API["/api/ec2<br/>instances / launch options<br/>metrics / costs"]
-        GUARD["Authentication + RBAC<br/>load current user from DB<br/>ownership checks"]
+        GUARD["Protected-route dependencies<br/>load current user from DB<br/>role and ownership checks"]
         FACADE["aws_service.py facade"]
-        MOCK["PostgreSQL-backed mock adapter"]
+        MOCK["PostgreSQL-backed mock adapter<br/>synthetic metrics + cost estimates"]
         LIVE["Lazy boto3 live adapter"]
 
         EDGE --> AUTH
         EDGE --> ADMIN
         EDGE --> EC2API
-        AUTH --> GUARD
+        AUTH -->|"/me only"| GUARD
         ADMIN --> GUARD
         EC2API --> GUARD
         EC2API --> FACADE
@@ -66,12 +66,11 @@ flowchart LR
     AUTH -->|"3. credentials and current user"| USERS
     GUARD -->|"4. reload role and active status"| USERS
     ADMIN -->|"5. user management"| USERS
-    EC2API -->|"6. sync live metadata"| INSTANCES
-    EC2API -->|"7. persist returned metrics"| METRICS
+    EC2API -->|"6. list endpoint syncs provider metadata"| INSTANCES
+    EC2API -->|"7. metrics history endpoint persists datapoints"| METRICS
     MOCK -->|"8. virtual instance state and ownership"| INSTANCES
-    MOCK -->|"9. generate metrics and cost estimates"| EC2API
-    LIVE -->|"10a. shared backend credentials when role access is off"| EC2
-    LIVE -->|"10b. role-mapped temporary clients when role access is on"| STS
+    LIVE -->|"9a. shared backend credentials when role access is off"| EC2
+    LIVE -->|"9b. role-mapped temporary clients when role access is on"| STS
     STS --> EC2
     STS --> CW
     STS --> CE
@@ -96,8 +95,15 @@ sequenceDiagram
     participant DB as PostgreSQL users
 
     User->>UI: Register or sign in
-    UI->>API: POST /api/auth/register or /api/auth/login
-    API->>DB: Create user or verify bcrypt hash
+    alt Register
+        UI->>API: POST /api/auth/register
+        API->>DB: Create User-role account with bcrypt hash
+        API-->>UI: Created user record
+        UI->>API: POST /api/auth/login
+    else Sign in
+        UI->>API: POST /api/auth/login
+    end
+    API->>DB: Verify bcrypt hash and active status
     API-->>UI: JWT bearer token
     UI->>UI: Store token in localStorage
     UI->>API: GET /api/auth/me with bearer token
@@ -125,14 +131,35 @@ sequenceDiagram
     User->>UI: List, launch, act, or open monitoring
     UI->>Route: Bearer-authenticated /api/ec2 request
     Route->>DB: Load current user
-    Route->>Facade: Operation with role and user id
+    opt User lifecycle action or metrics request
+        Route->>Facade: Resolve target instance for ownership check
+        Facade->>Provider: Dispatch by CLOUDSIM_AWS_BACKEND
+        Provider-->>Facade: Target instance and CreatedBy tag
+        Facade-->>Route: Normalized target instance
+        Route->>Route: Verify CreatedBy matches current user
+    end
+    Route->>Facade: Fetch or perform operation with role and user id
     Facade->>Provider: Dispatch by CLOUDSIM_AWS_BACKEND
     Provider-->>Facade: Instance, metric, or cost data
     Facade-->>Route: Normalized response
-    Route->>Route: Enforce ownership for User role
-    Route->>DB: Sync instance metadata or persist metrics
+    alt Instance list
+        Route->>DB: Sync returned instance summaries
+        Route->>Route: Filter response by CreatedBy for User
+    else Instance detail
+        Route->>Route: Verify CreatedBy for User
+    else Metrics history
+        Route->>DB: Persist returned metric datapoints
+    else Cost request
+        Note over Facade,Provider: Provider scopes regular-user costs
+    end
     Route-->>UI: JSON response
 ```
+
+The exact ordering is endpoint-specific. Lifecycle actions and metrics requests
+first resolve the target instance to check ownership, then perform the requested
+operation. The list endpoint fetches provider data, syncs the returned summaries,
+then filters the response for a `User`. Instance details are fetched and then
+checked. Cost scoping is applied inside the selected provider.
 
 ## Component Responsibilities
 
@@ -155,8 +182,8 @@ sequenceDiagram
 | :--- | :--- | :--- |
 | Users, roles, active status | PostgreSQL | Authoritative |
 | Mock instances | PostgreSQL | Authoritative |
-| Live instances | AWS EC2 | Synced summary/cache; ownership remains in AWS `CreatedBy` tags |
-| CPU/network/disk metrics | Mock generator or CloudWatch | Persisted after the metrics history endpoint returns data |
+| Live instances | AWS EC2 | List endpoint syncs summary/cache; ownership remains in AWS `CreatedBy` tags |
+| CPU/network/disk metrics | Mock generator or CloudWatch | Metrics history is persisted before its response; current/latest metrics are not persisted |
 | Mock costs | Calculated from visible mock instances | Instances provide calculation input |
 | Live costs | Cost Explorer | Returned to the UI; not persisted |
 | Dashboard alarms/zones/resource summaries | Static frontend presentation data | Not persisted |
@@ -191,5 +218,43 @@ sequenceDiagram
 | `ENABLE_COST_EXPLORER=true` | Enables live Cost Explorer endpoints |
 | `CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true` | Creates or restores the configured backend-only admin at startup |
 
-Document version: 3.0
-Last updated: June 6, 2026
+## Brief Presentation Walkthrough
+
+Use this as a two-to-three-minute talk track:
+
+1. **Deployment boundary:** Vercel serves a static React/Vite SPA. The browser
+   calls the Render-hosted FastAPI API directly through `VITE_API_URL`; Vercel
+   is not an API proxy.
+2. **Identity boundary:** Login returns a JWT containing only the user's email.
+   Every protected request reloads the user from PostgreSQL, making role,
+   active-status, and deletion changes effective immediately.
+3. **Authorization boundary:** FastAPI is the primary policy-enforcement layer.
+   Admin and DevOps roles can operate across instances; regular users are
+   restricted by the `CreatedBy=<user_id>` ownership contract.
+4. **Provider boundary:** EC2 routes call one `aws_service.py` facade. A feature
+   flag selects either the PostgreSQL-backed mock adapter or lazy boto3 clients
+   without changing the frontend or route contract.
+5. **Data ownership:** PostgreSQL is authoritative for users and mock instances.
+   In live mode, AWS remains authoritative for resources and costs; PostgreSQL
+   only receives instance summaries from list requests and metric-history
+   snapshots.
+6. **Optional defense in depth:** In live mode, role-based access can use STS
+   AssumeRole. Effective permission is then the intersection of FastAPI policy
+   and AWS IAM policy.
+7. **Operational validation:** GitHub Actions tests the backend, lints/tests/builds
+   the frontend, validates Compose, and builds both Docker images before
+   deployment.
+
+Be ready to call out these deliberate trade-offs:
+
+- JWTs in `localStorage` keep the SPA simple but increase exposure to XSS
+  compared with `httpOnly` cookies.
+- `Base.metadata.create_all()` is sufficient for the current deployment but is
+  not a versioned migration strategy.
+- The live-instance PostgreSQL copy is a list-triggered cache, not a continuously
+  synchronized source of truth.
+- Mock and live providers share a route contract, but provider-specific
+  integration and authorization behavior still require separate tests.
+
+Document version: 3.1
+Last updated: June 7, 2026
