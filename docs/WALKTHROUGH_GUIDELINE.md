@@ -6,9 +6,6 @@ backend, Render PostgreSQL, and `CLOUDSIM_AWS_BACKEND=mock`.
 
 ## What Is Live In The Demo
 
-Use these labels while presenting so the reviewer can distinguish implemented
-backend behavior from visual product direction.
-
 | Surface | Final Behavior |
 | :--- | :--- |
 | Login, registration, session validation | API-backed |
