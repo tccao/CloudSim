@@ -6,15 +6,15 @@ A comprehensive guide to Python backend development for aspiring fullstack engin
 
 ## Table of Contents
 
-1.  [Technology Stack Overview](#technology-stack-overview)
-2.  [Python Fundamentals for Backend](#python-fundamentals-for-backend)
-3.  [FastAPI Core Concepts](#fastapi-core-concepts)
-4.  [Pydantic Data Validation](#pydantic-data-validation)
-5.  [SQLAlchemy ORM](#sqlalchemy-orm)
-6.  [Authentication with JWT](#authentication-with-jwt)
-7.  [AWS Integration with boto3](#aws-integration-with-boto3)
-8.  [API Design Patterns](#api-design-patterns)
-9.  [Error Handling & Logging](#error-handling--logging)
+1. [Technology Stack Overview](#technology-stack-overview)
+2. [Python Fundamentals for Backend](#python-fundamentals-for-backend)
+3. [FastAPI Core Concepts](#fastapi-core-concepts)
+4. [Pydantic Data Validation](#pydantic-data-validation)
+5. [SQLAlchemy ORM](#sqlalchemy-orm)
+6. [Authentication with JWT](#authentication-with-jwt)
+7. [AWS Integration with boto3](#aws-integration-with-boto3)
+8. [API Design Patterns](#api-design-patterns)
+9. [Error Handling & Logging](#error-handling--logging)
 10. [Interview Questions & Answers](#interview-questions--answers)
 11. [Hands-On Exercises (CloudSim-Based)](#hands-on-exercises-cloudsim-based)
 12. [Best Learning Resources](#best-learning-resources)
@@ -36,7 +36,7 @@ The CloudSim backend uses a production-ready Python stack:
 | **passlib** | Password hashing (bcrypt) | 1.7+ |
 | **uvicorn** | ASGI server | 0.24+ |
 
-**📂 CloudSim Reference:** `backend/requirements.txt`
+**📂 CloudSim Reference:** `backend/pyproject.toml`
 
 ---
 
@@ -79,11 +79,13 @@ async def list_instances(
 ```
 
 **When to use async:**
+
 - API calls that wait for external services (AWS, databases)
 - File I/O operations
 - Network requests
 
 **📚 Resources:**
+
 - [Python Type Hints Cheat Sheet](https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html)
 - [Async Python Tutorial](https://realpython.com/async-io-python/)
 
@@ -92,7 +94,9 @@ async def list_instances(
 ## FastAPI Core Concepts
 
 ### What is FastAPI?
+
 FastAPI is a modern, high-performance Python web framework built on:
+
 - **Starlette** (async web server)
 - **Pydantic** (data validation)
 - Automatic **OpenAPI/Swagger** documentation
@@ -184,12 +188,14 @@ async def list_instances(
 ```
 
 **Common Dependencies in CloudSim:**
+
 - `get_current_user` - Validates JWT and returns User
 - `get_db` - Provides database session
 
 **📂 CloudSim Reference:** `backend/app/main.py`, `backend/app/ec2_routes.py`
 
 **📚 Resources:**
+
 - [FastAPI Official Docs](https://fastapi.tiangolo.com/)
 - [FastAPI Tutorial (Video)](https://www.youtube.com/watch?v=0sOvCWFHLMs)
 
@@ -198,6 +204,7 @@ async def list_instances(
 ## Pydantic Data Validation
 
 ### What is Pydantic?
+
 Pydantic provides automatic data validation using Python type hints. FastAPI uses it for request/response validation.
 
 ### Request Models (Input Validation)
@@ -272,6 +279,7 @@ class UserCreate(BaseModel):
 **📂 CloudSim Reference:** `backend/app/ec2_routes.py`, `backend/app/auth.py`
 
 **📚 Resources:**
+
 - [Pydantic Documentation](https://docs.pydantic.dev/)
 
 ---
@@ -279,6 +287,7 @@ class UserCreate(BaseModel):
 ## SQLAlchemy ORM
 
 ### What is an ORM?
+
 ORM (Object-Relational Mapper) lets you interact with databases using Python objects instead of SQL.
 
 ### Database Connection Setup
@@ -382,6 +391,7 @@ Base.metadata.create_all(bind=engine)
 **📂 CloudSim Reference:** `backend/app/db.py`, `backend/app/models.py`
 
 **📚 Resources:**
+
 - [SQLAlchemy Tutorial](https://docs.sqlalchemy.org/en/20/tutorial/)
 - [FastAPI + SQLAlchemy Guide](https://fastapi.tiangolo.com/tutorial/sql-databases/)
 
@@ -390,7 +400,9 @@ Base.metadata.create_all(bind=engine)
 ## Authentication with JWT
 
 ### What is JWT?
+
 JWT (JSON Web Token) is a self-contained token for stateless authentication:
+
 - **Stateless**: No server-side session storage needed
 - **Scalable**: Works across multiple servers
 - **Self-contained**: Contains user info in the token itself
@@ -488,6 +500,7 @@ async def list_instances(
 **📂 CloudSim Reference:** `backend/app/auth.py`, `backend/app/auth_routes.py`
 
 **📚 Resources:**
+
 - [JWT Introduction](https://jwt.io/introduction)
 - [FastAPI Security Guide](https://fastapi.tiangolo.com/tutorial/security/)
 
@@ -496,6 +509,7 @@ async def list_instances(
 ## AWS Integration with boto3
 
 ### What is boto3?
+
 boto3 is the official AWS SDK for Python. It provides Python APIs for all AWS services.
 
 ### Client Setup
@@ -598,6 +612,7 @@ def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
 **📂 CloudSim Reference:** `backend/app/aws_service.py`
 
 **📚 Resources:**
+
 - [boto3 Documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
 - [AWS SDK for Python Quickstart](https://aws.amazon.com/sdk-for-python/)
 
@@ -721,7 +736,9 @@ async def start_instance(instance_id: str):
 ### 🔵 Python Backend Questions
 
 #### Q1: What is the difference between `==` and `is` in Python?
+
 **Answer:**
+
 - `==` compares **values** (equality)
 - `is` compares **identity** (same object in memory)
 
@@ -733,6 +750,7 @@ a is b  # False (different objects)
 ```
 
 #### Q2: What are decorators and how are they used in FastAPI?
+
 **Answer:** Decorators wrap functions to add behavior. FastAPI uses them for routing:
 
 ```python
@@ -746,7 +764,9 @@ async def list_instances():
 ---
 
 #### Q3: Explain the difference between sync and async functions
+
 **Answer:**
+
 - **Sync:** Blocks execution until complete
 - **Async:** Allows other code to run while waiting
 
@@ -765,6 +785,7 @@ async def fetch_data():
 ---
 
 #### Q4: What is dependency injection in FastAPI?
+
 **Answer:** Dependencies are reusable components injected into route handlers:
 
 ```python
@@ -782,13 +803,16 @@ async def list_instances(
 ---
 
 #### Q5: How does JWT authentication work?
+
 **Answer:**
+
 1. User sends credentials to `/login`
 2. Server validates and returns JWT token
 3. Client stores token and sends with each request
 4. Server validates token on protected routes
 
 **CloudSim Flow:**
+
 1. `POST /api/auth/login` → Returns `{"access_token": "eyJ..."}`
 2. Client sends `Authorization: Bearer eyJ...`
 3. `get_current_user` dependency validates token
@@ -796,9 +820,11 @@ async def list_instances(
 ---
 
 #### Q6: What is the N+1 query problem and how do you solve it?
+
 **Answer:** N+1 occurs when you query a list (1 query), then query related data for each item (N queries).
 
 **Solution:** Use eager loading (SQLAlchemy `joinedload`):
+
 ```python
 # Bad: N+1 problem
 users = db.query(User).all()
@@ -813,6 +839,7 @@ users = db.query(User).options(joinedload(User.instances)).all()
 ---
 
 #### Q7: Explain the Repository pattern
+
 **Answer:** Repository pattern separates data access from business logic:
 
 ```python
@@ -841,6 +868,7 @@ class InstanceService:
 ### 🟢 Fullstack Questions
 
 #### Q8: How do you handle CORS in FastAPI?
+
 **Answer:** Use CORSMiddleware:
 
 ```python
@@ -857,7 +885,9 @@ app.add_middleware(
 ---
 
 #### Q9: Describe the request lifecycle in CloudSim
+
 **Answer:**
+
 1. **Frontend:** User clicks "Start Instance"
 2. **Axios:** Sends `POST /api/ec2/instances/{id}/start`
 3. **CORS:** Middleware validates origin
@@ -870,13 +900,16 @@ app.add_middleware(
 ---
 
 #### Q10: How do you secure API keys and secrets?
+
 **Answer:**
+
 1. **Environment variables** - Never hardcode secrets
 2. **`.env` files** - Local development (gitignored)
 3. **AWS credentials** - Use `~/.aws/credentials` or IAM roles
 4. **Production** - Use secrets manager (AWS Secrets Manager, Vault)
 
 **CloudSim Pattern:**
+
 ```python
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-fallback-key")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -887,19 +920,23 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 ## Hands-On Exercises (CloudSim-Based)
 
 ### Exercise 1: Add Instance Tag Endpoint (Basic CRUD)
+
 **Difficulty:** ⭐ Easy | **Concepts:** Routes, Pydantic, AWS
 
 **Task:** Add an endpoint to add a tag to an instance.
 
 **Steps:**
+
 1. Create Pydantic schema in `ec2_routes.py`:
+
 ```python
 class AddTagRequest(BaseModel):
     key: str
     value: str
 ```
 
-2. Add route:
+1. Add route:
+
 ```python
 @router.post("/instances/{instance_id}/tags")
 async def add_instance_tag(
@@ -919,16 +956,19 @@ async def add_instance_tag(
 ---
 
 ### Exercise 2: Implement Password Reset (Auth Flow)
+
 **Difficulty:** ⭐⭐ Medium | **Concepts:** JWT, Email, Security
 
 **Task:** Add password reset functionality.
 
 **Steps:**
+
 1. Add `POST /api/auth/forgot-password` - generates reset token
 2. Add `POST /api/auth/reset-password` - validates token, updates password
 3. Store reset token in DB with expiration
 
 **Starter Code:**
+
 ```python
 class PasswordResetRequest(BaseModel):
     email: EmailStr
@@ -952,12 +992,15 @@ async def forgot_password(request: PasswordResetRequest, db: Session = Depends(g
 ---
 
 ### Exercise 3: Add Request Logging Middleware
+
 **Difficulty:** ⭐⭐ Medium | **Concepts:** Middleware, Logging
 
 **Task:** Log all incoming requests with timing.
 
 **Steps:**
+
 1. Create middleware in `main.py`:
+
 ```python
 import time
 import logging
@@ -979,16 +1022,19 @@ async def log_requests(request, call_next):
 ---
 
 ### Exercise 4: Rate Limiting
+
 **Difficulty:** ⭐⭐⭐ Hard | **Concepts:** Middleware, Redis, Security
 
 **Task:** Implement rate limiting (60 requests/minute per IP).
 
 **Steps:**
-1. Install Redis: `pip install redis`
+
+1. Install Redis: `uv pip install redis`
 2. Create rate limit middleware
 3. Track requests per IP with TTL
 
 **Starter Code:**
+
 ```python
 from datetime import datetime
 import redis
@@ -1014,16 +1060,19 @@ async def rate_limit_middleware(request, call_next):
 ---
 
 ### Exercise 5: Background Job Queue
+
 **Difficulty:** ⭐⭐⭐ Hard | **Concepts:** Celery, Async, Workers
 
 **Task:** Move instance creation to a background job.
 
 **Steps:**
-1. Install Celery: `pip install celery redis`
+
+1. Install Celery: `uv pip install celery redis`
 2. Create `tasks.py` with Celery app
 3. Modify `create_instance` to queue task instead of waiting
 
 **Starter Code:**
+
 ```python
 # tasks.py
 from celery import Celery
@@ -1046,12 +1095,15 @@ async def create_instance(request: CreateInstanceRequest):
 ---
 
 ### Exercise 6: API Versioning
+
 **Difficulty:** ⭐⭐ Medium | **Concepts:** API Design, Routing
 
 **Task:** Add API versioning support (`/api/v1/...`, `/api/v2/...`).
 
 **Steps:**
+
 1. Create version-prefixed routers:
+
 ```python
 router_v1 = APIRouter(prefix="/api/v1")
 router_v2 = APIRouter(prefix="/api/v2")
@@ -1066,12 +1118,14 @@ app.include_router(ec2_router_v2)
 ---
 
 ### Exercise 7: Database Migrations with Alembic
+
 **Difficulty:** ⭐⭐⭐ Hard | **Concepts:** Database, Migrations
 
 **Task:** Set up Alembic for database migrations instead of `create_all`.
 
 **Steps:**
-1. Install: `pip install alembic`
+
+1. Install: `uv pip install alembic`
 2. Initialize: `alembic init alembic`
 3. Configure `alembic.ini` and `env.py`
 4. Generate migration: `alembic revision --autogenerate -m "initial"`
@@ -1082,12 +1136,15 @@ app.include_router(ec2_router_v2)
 ---
 
 ### Exercise 8: Unit Testing with pytest
+
 **Difficulty:** ⭐⭐ Medium | **Concepts:** Testing, Mocking
 
 **Task:** Write tests for `aws_service.py` functions.
 
 **Steps:**
+
 1. Create `tests/test_aws_service.py`:
+
 ```python
 import pytest
 from unittest.mock import patch, MagicMock
@@ -1137,16 +1194,19 @@ def test_list_instances(mock_ec2):
 ## Best Learning Resources
 
 ### Free Courses
+
 1. **[FastAPI Official Tutorial](https://fastapi.tiangolo.com/tutorial/)** - Start here
 2. **[Real Python](https://realpython.com/)** - In-depth Python tutorials
 3. **[SQLAlchemy Tutorial](https://docs.sqlalchemy.org/en/20/tutorial/)**
 
 ### Video Tutorials
+
 1. **[FastAPI Full Course (FreeCodeCamp)](https://www.youtube.com/watch?v=0sOvCWFHLMs)** - 19 hours
 2. **[Corey Schafer Flask Series](https://www.youtube.com/playlist?list=PL-osiE80TeTs4UjLw5MM6OjgkjFeUxCYH)** - Concepts apply to FastAPI
 3. **[Tech With Tim Python Backend](https://www.youtube.com/c/TechWithTim)**
 
 ### Documentation (Keep Bookmarked)
+
 - [FastAPI Docs](https://fastapi.tiangolo.com/)
 - [Pydantic Docs](https://docs.pydantic.dev/)
 - [SQLAlchemy Docs](https://docs.sqlalchemy.org/)
@@ -1154,6 +1214,7 @@ def test_list_instances(mock_ec2):
 - [PostgreSQL Docs](https://www.postgresql.org/docs/)
 
 ### Books
+
 - **"Architecture Patterns with Python"** - Domain-Driven Design
 - **"Two Scoops of Django"** - Best practices (applicable to FastAPI)
 
@@ -1163,7 +1224,8 @@ def test_list_instances(mock_ec2):
 
 ```
 backend/
-├── requirements.txt              # Python dependencies
+├── pyproject.toml                # Python dependencies + dev group + pytest config
+├── uv.lock                       # Pinned, reproducible dependency versions
 └── app/
     ├── __init__.py               # Package marker
     ├── main.py                   # FastAPI app, CORS, router inclusion
@@ -1184,18 +1246,18 @@ backend/
 
 - Python 3.14+
 - PostgreSQL 15+ available and reachable through `DATABASE_URL`
-- `uvicorn` installed from `backend/requirements.txt`
+- `uvicorn` installed from `backend/pyproject.toml`
 
 ```bash
 # Navigate to backend
 cd backend
 
-# Activate virtual environment
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
+# Create .venv (Python 3.14) and install locked dependencies
+uv sync
 
-# Install dependencies
-pip install -r requirements.txt
+# Activate the environment, or prefix commands with `uv run`
+source .venv/bin/activate  # Linux/Mac
+# or: .venv\Scripts\activate  # Windows
 
 # Ensure PostgreSQL is installed and running
 # Example connection string:

@@ -38,7 +38,7 @@ This guide creates a dedicated network environment for CloudSim:
 
 ### Step 1.1: Create VPC
 
-1. Go to: https://console.aws.amazon.com/vpc/home#CreateVpc
+1. Go to: <https://console.aws.amazon.com/vpc/home#CreateVpc>
 2. Select: **VPC only**
 3. Configure:
    - Name tag: `cloudsim-vpc`
@@ -54,7 +54,7 @@ This guide creates a dedicated network environment for CloudSim:
 
 ### Step 2.1: Create Public Subnet
 
-1. Go to: https://console.aws.amazon.com/vpc/home#CreateSubnet
+1. Go to: <https://console.aws.amazon.com/vpc/home#CreateSubnet>
 2. Select VPC: `cloudsim-vpc`
 3. Configure:
    - Subnet name: `cloudsim-public`
@@ -72,7 +72,7 @@ This guide creates a dedicated network environment for CloudSim:
 
 ### Step 2.3: Create Private Subnet (Optional)
 
-1. Go to: https://console.aws.amazon.com/vpc/home#CreateSubnet
+1. Go to: <https://console.aws.amazon.com/vpc/home#CreateSubnet>
 2. Select VPC: `cloudsim-vpc`
 3. Configure:
    - Subnet name: `cloudsim-private`
@@ -86,7 +86,7 @@ This guide creates a dedicated network environment for CloudSim:
 
 ### Step 3.1: Create Gateway
 
-1. Go to: https://console.aws.amazon.com/vpc/home#CreateInternetGateway
+1. Go to: <https://console.aws.amazon.com/vpc/home#CreateInternetGateway>
 2. Name tag: `cloudsim-igw`
 3. Click **Create internet gateway**
 
@@ -103,7 +103,7 @@ This guide creates a dedicated network environment for CloudSim:
 
 ### Step 4.1: Find or Create Route Table
 
-1. Go to: https://console.aws.amazon.com/vpc/home#RouteTables
+1. Go to: <https://console.aws.amazon.com/vpc/home#RouteTables>
 2. Find the route table for `cloudsim-vpc` (created automatically with VPC)
 3. Rename it to: `cloudsim-public-rt`
 
@@ -128,7 +128,7 @@ This guide creates a dedicated network environment for CloudSim:
 
 ### Step 5.1: Create Security Group
 
-1. Go to: https://console.aws.amazon.com/ec2/home#CreateSecurityGroup
+1. Go to: <https://console.aws.amazon.com/ec2/home#CreateSecurityGroup>
 2. Configure:
    - Security group name: `cloudsim-ec2-sg`
    - Description: `Security group for CloudSim managed instances`
@@ -148,8 +148,8 @@ This guide creates a dedicated network environment for CloudSim:
 
 Keep default: Allow all outbound traffic (`0.0.0.0/0`)
 
-3. Click **Create security group**
-4. **Save the Security Group ID** (e.g., `sg-0abc123...`)
+1. Click **Create security group**
+2. **Save the Security Group ID** (e.g., `sg-0abc123...`)
 
 ---
 
@@ -217,6 +217,7 @@ After completing setup, you should have:
 ## Cleanup (If Needed)
 
 To delete VPC resources, delete in this order:
+
 1. Terminate all EC2 instances in the VPC
 2. Delete Security Groups (except default)
 3. Delete Subnets

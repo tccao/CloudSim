@@ -14,8 +14,8 @@ Run these checks from the repository root before deploying. The Docker Compose s
 
 ```bash
 cd backend
-source venv/bin/activate
-python -m pytest
+uv sync
+uv run pytest
 
 cd ../frontend
 npm ci
@@ -71,6 +71,7 @@ CLOUDSIM_BOOTSTRAP_ADMIN_EMAIL=<admin-email>
 CLOUDSIM_BOOTSTRAP_ADMIN_PASSWORD=<strong-secret-password>
 CLOUDSIM_BOOTSTRAP_ADMIN_RESET_PASSWORD=false
 ```
+
 Generate a secure secret key and copy it into `SECRET_KEY`:
 
 ```bash
@@ -141,6 +142,7 @@ VITE_API_URL=https://<your-backend-service>.onrender.com
 ```
 
 Notes:
+
 - `VITE_API_URL` must point to the Render backend service URL.
 - Do not include a trailing slash.
 - Vite only exposes environment variables that begin with `VITE_`.

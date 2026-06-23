@@ -142,6 +142,7 @@ CloudSim enforces strict resource isolation between users. Each user can only se
 ## Permissions Summary
 
 ### Allowed Actions
+
 ```
 ec2:DescribeInstances
 ec2:DescribeInstanceStatus
@@ -163,6 +164,7 @@ cloudwatch:DescribeAlarms     (own instances)
 ```
 
 ### Explicitly Denied
+
 ```
 ce:*                          (no Cost Explorer access)
 iam:*                         (no IAM/user management)

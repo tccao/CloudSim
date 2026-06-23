@@ -28,10 +28,13 @@
 ## 1. Introduction
 
 ### 1.1 Purpose
+
 This document defines the product and functional requirements for **CloudSim**, a web-based cloud infrastructure management application that integrates with real AWS EC2 for compute, storage, networking, and monitoring. It serves as both the **Product Requirements Document (PRD)** for stakeholders and the **Software Requirements Specification (SRS)** for engineering.
 
 ### 1.2 Scope
+
 CloudSim provides an AWS console-like experience:
+
 - Provision, start, stop, reboot, and terminate **EC2 instances**.
 - View **security groups**, **VPC / subnet networking**, **EBS storage**, and **tags**.
 - **Monitor** CPU, network, and disk metrics via CloudWatch — with snapshots persisted to PostgreSQL.
@@ -40,6 +43,7 @@ CloudSim provides an AWS console-like experience:
 - Provide **REST APIs** for developer automation.
 
 ### 1.3 Definitions, Acronyms, Abbreviations
+
 | Term | Definition |
 |------|------------|
 | Instance | AWS EC2 compute node |
@@ -51,6 +55,7 @@ CloudSim provides an AWS console-like experience:
 | MVP | Minimum Viable Product |
 
 ### 1.4 References
+
 - AWS EC2 Documentation
 - AWS CloudWatch API
 - FastAPI Documentation
@@ -61,7 +66,9 @@ CloudSim provides an AWS console-like experience:
 ## 2. Overall Description
 
 ### 2.1 Product Perspective
+
 CloudSim is a fullstack web application with:
+
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui (deployed as a Vercel static site)
 - **Backend**: FastAPI + SQLAlchemy + boto3 (deployed as a Render Docker web service)
 - **Database**: PostgreSQL (local, Docker Compose, or Render PostgreSQL)
@@ -69,6 +76,7 @@ CloudSim is a fullstack web application with:
 - **CI/CD**: GitHub Actions (backend tests, frontend lint/test/build, Compose validation, Docker image builds)
 
 ### 2.2 User Classes & Characteristics
+
 | Role | Permissions |
 |------|-------------|
 | **User** | Launch instances, manage (start/stop/reboot/terminate) own instances, view own CloudWatch metrics and Cost Explorer data filtered to resources tagged with their user ID. No quota modification or user management. |
@@ -76,17 +84,20 @@ CloudSim is a fullstack web application with:
 | **Admin** | All DevOps permissions, plus full user CRUD and modifiable resource quotas. |
 
 ### 2.3 Operating Environment
+
 - Modern desktop browser (Chrome, Firefox, Safari)
 - Production deployment with Vercel frontend and Render backend/database
 - Local development through Docker Compose or separate frontend/backend processes
 - AWS account with EC2 access only when `CLOUDSIM_AWS_BACKEND=live`
 
 ### 2.4 Design & Implementation Constraints
+
 - Role-based access control enforced at API level
 - `mock` mode for safe public demos; `live` mode for real AWS resources where costs apply
 - Single-developer velocity
 
 ### 2.5 Assumptions & Dependencies
+
 - Valid AWS credentials configured only for live AWS mode (see `iamSetupGuide.md`)
 - PostgreSQL database available locally or via managed service
 - Node.js 22+ and Python 3.14+ installed for local parity with CI/Docker
@@ -155,6 +166,7 @@ CloudSim is a fullstack web application with:
 7. Frontend refreshes Dashboard showing the new instance
 
 **API:** `POST /api/ec2/instances`
+
 ```json
 Request: { "name": "web-server-01", "instance_type": "t2.micro" }
 Response: { "message": "Instance created", "instance_id": "i-0abc123..." }
@@ -172,6 +184,7 @@ Response: { "message": "Instance created", "instance_id": "i-0abc123..." }
 6. Frontend renders Details, Security, Networking, Storage, Tags tabs
 
 **API:** `GET /api/ec2/instances/{instance_id}`
+
 ```json
 Response: {
   "instance_id": "i-0abc123...",
@@ -224,6 +237,7 @@ Response: {
 ## 5. System Features (Functional Requirements)
 
 ### 5.1 Instance Management (Epic 1)
+
 - **FR-1:** List all EC2 instances with sync to database
 - **FR-2:** Create instance with name and type selection
 - **FR-3:** Start/Stop instance with state persistence
@@ -232,23 +246,27 @@ Response: {
 - **FR-6:** View detailed instance information
 
 ### 5.2 Storage & Networking (Epic 2)
+
 - **FR-7:** Display attached EBS volumes with details
 - **FR-8:** Display security group associations
 - **FR-9:** Display VPC, Subnet, and DNS information
 
 ### 5.3 Monitoring & Metrics (Epic 3)
+
 - **FR-10:** Fetch CloudWatch metrics (CPU, NetworkIn, NetworkOut, DiskReadOps, DiskWriteOps) for instances
 - **FR-11:** Display CPU utilization, network, and disk I/O charts (Recharts)
 - **FR-12:** Persist each CloudWatch datapoint to the local `metrics` table on fetch (idempotent)
 - **FR-13:** Display Cost Explorer data — daily breakdown and current-month projection; `User` results are filtered to resources tagged with their CloudSim user ID
 
 ### 5.4 System Management (Epic 4)
+
 - **FR-14:** User authentication with JWT (HS256, 30-minute TTL) and bcrypt password hashing
 - **FR-15:** Role-based access control: `Admin`, `DevOps Engineer`, `User`
 - **FR-16:** Admin-only IAM panel for full user CRUD (`/api/admin/users`)
 - **FR-17:** Ownership filtering for `User` role via the `CreatedBy` AWS resource tag
 
 ### 5.5 API Integration (Epic 5)
+
 - **FR-18:** RESTful API for all instance, metrics, cost, and admin operations
 - **FR-19:** Consistent JSON response format with Pydantic schemas
 - **FR-20:** Error handling with appropriate HTTP status codes (401, 403, 404, 502, 503)
@@ -319,6 +337,7 @@ Base URL (dev): `http://localhost:8000`
 | GET | `/docs` | OpenAPI Swagger UI (development only) |
 
 ### 6.3 Authentication
+
 - JWT Bearer token in `Authorization` header
 - Tokens stored in localStorage
 - Auto-logout on 401 response
@@ -330,28 +349,35 @@ Base URL (dev): `http://localhost:8000`
 ### 7.1 Database Entities
 
 **User** (`users` table)
+
 ```
 id, email, hashed_password, role, is_active, created_at
 ```
+
 - `role` is constrained to `Admin`, `DevOps Engineer`, or `User` via a CHECK constraint.
 
 **Instance** (`instances` table — synced from AWS)
+
 ```
 instance_id (PK), name, instance_type, state, public_ip, private_ip,
 availability_zone, launch_time, last_synced, created_by_user_id
 ```
+
 - Composite index on `(state, last_synced)` for fast dashboard queries.
 
 **Metric** (`metrics` table — CloudWatch snapshots)
+
 ```
 id (PK), instance_id, metric_name, value, unit, recorded_at, collected_at
 ```
+
 - Composite index on `(instance_id, metric_name, recorded_at)`.
 - Idempotency guard prevents duplicate datapoints when a metric refresh is repeated.
 
 ### 7.2 External Data (AWS)
 
 Retrieved in real-time via boto3:
+
 - Security Groups (EC2)
 - EBS Volumes (EC2)
 - Resource Tags (EC2 — including the `CreatedBy` ownership tag)
@@ -363,11 +389,13 @@ Retrieved in real-time via boto3:
 ## 8. Non-Functional Requirements
 
 ### 8.1 Performance
+
 - API response time < 500ms for CRUD operations
 - Frontend first paint < 2.5s
 - Charts update within 1s of data fetch
 
 ### 8.2 Security
+
 - JWT authentication (HS256, 30-minute TTL) with bcrypt password hashing (work factor 12)
 - Role-based access control enforced at the API layer via FastAPI dependencies
 - CORS restricted to configured frontend origins (localhost dev + production domain)
@@ -375,11 +403,13 @@ Retrieved in real-time via boto3:
 - AWS credentials via environment variables (never in code)
 
 ### 8.3 Reliability
+
 - Graceful error handling with user-friendly messages
 - Toast notifications for action feedback
 - Loading states during async operations
 
 ### 8.4 Maintainability
+
 - TypeScript for type safety in frontend
 - Pydantic schemas for API validation
 - Modular component architecture
@@ -444,36 +474,43 @@ See `architectureDiagram.md` for the full Mermaid diagram with numbered flows. A
 ## 10. Use Cases
 
 ### UC-1: View Dashboard
+
 **Trigger:** User logs in
 **Flow:** Fetch instances → Render table → Show zone health and alarms
 **Output:** Dashboard with real-time instance data
 
 ### UC-2: Launch New Instance
+
 **Trigger:** User clicks "Launch Instance"
 **Flow:** Open modal → Fill form → Submit → Create in mock or live AWS backend → Refresh list
 **Output:** New instance appears in dashboard
 
 ### UC-3: Manage Instance State
+
 **Trigger:** User clicks Start/Stop/Reboot
 **Flow:** Call API → instance state change → Toast notification → Refresh
 **Output:** Instance state updated
 
 ### UC-4: View Instance Details
+
 **Trigger:** User clicks instance name
 **Flow:** Navigate to details → Fetch from API → Render tabs
 **Output:** Comprehensive instance information displayed
 
 ### UC-5: Monitor Performance
+
 **Trigger:** User opens Monitoring tab
 **Flow:** Select instance → Fetch CloudWatch or mock metrics → Persist datapoints to `metrics` table → Render charts
 **Output:** CPU, Network, and Disk I/O charts with historical data
 
 ### UC-6: Manage Users (Admin)
+
 **Trigger:** Admin opens IAM & Settings → User Management
 **Flow:** List users → Create / update / delete via `/api/admin/users` endpoints
 **Output:** User table updated; new accounts can immediately log in
 
 ### UC-7: Track Spend
+
 **Trigger:** User, DevOps Engineer, or Admin opens Monitoring → Cost tab
 **Flow:** Fetch `/api/ec2/costs/daily` and `/api/ec2/costs/summary` from Cost Explorer
 **Output:** Daily breakdown chart and month-to-date / projected total; `User` output is filtered to their own `CreatedBy` tag
@@ -499,16 +536,19 @@ See `architectureDiagram.md` for the full Mermaid diagram with numbered flows. A
 ## 12. Quality Assurance Plan
 
 ### 12.1 Testing Strategy
+
 - **Unit Tests:** API route handlers, utility functions
 - **Integration Tests:** Frontend-backend data flow
 - **Manual Testing:** UI interactions, AWS operations
 
 ### 12.2 Code Quality
+
 - TypeScript strict mode for frontend
 - ESLint for code style
 - Pydantic for API schema validation
 
 ### 12.3 Security Testing
+
 - JWT token validation
 - Role-based permission checks
 - CORS configuration verification
@@ -518,6 +558,7 @@ See `architectureDiagram.md` for the full Mermaid diagram with numbered flows. A
 ## 13. Project Management
 
 ### 13.1 Completed Milestones
+
 - ✅ Project setup, wireframes, SRS/PRD draft
 - ✅ Frontend UI implementation (Dashboard, Instance Details, Monitoring, IAM panel)
 - ✅ Backend API implementation (FastAPI + SQLAlchemy)
@@ -534,6 +575,7 @@ See `architectureDiagram.md` for the full Mermaid diagram with numbered flows. A
 - ✅ Deployment smoke test script
 
 ### 13.2 Current Status
+
 - All MVP features implemented and production-deployable
 - Vite frontend documented for Vercel and FastAPI backend documented for Render production mode
 - Mock mode supports safe public demos without real AWS calls
@@ -543,6 +585,7 @@ See `architectureDiagram.md` for the full Mermaid diagram with numbered flows. A
 - See `docs/ProjectSprintPlan.csv` for detailed sprint history
 
 ### 13.3 Future Enhancements
+
 - [ ] Auto-scaling simulation (UI exists, policy execution pending)
 - [ ] Multi-region support
 - [ ] WebSocket for real-time instance state updates

@@ -45,6 +45,7 @@ erDiagram
 ---
 
 ## Overview
+
 CloudSim uses PostgreSQL as its primary application database. The database supports three core concerns:
 
 - authentication through locally stored user accounts
@@ -61,20 +62,25 @@ The current backend ORM defines three application tables:
 The backend source of truth is the SQLAlchemy model layer in [backend/app/models.py](/home/tinhc/CloudSim/backend/app/models.py). This document exists as a standalone schema specification so engineers can understand the data model without reverse-engineering the ORM.
 
 ## Role Model
+
 CloudSim currently supports three application roles. These roles are stored directly as string values in the `users.role` column. There is no separate `roles` table or permissions matrix table at this stage.
 
 ### `Admin`
+
 Admins have full access to the application. They can manage users through the admin API and can perform all EC2 operations.
 
 ### `DevOps Engineer`
+
 DevOps Engineers can perform EC2 lifecycle operations and view all instances, but they cannot use the admin user-management endpoints.
 
 ### `User`
+
 Users are limited to their own resources. Instance access is filtered by application logic using ownership metadata such as `created_by_user_id` or AWS tagging.
 
 ## Table Definitions
 
 ### `users`
+
 Purpose: store application accounts used for login, authorization, and admin-controlled user management.
 
 | Column | Type | Nullable | Default | Constraints | Meaning |
@@ -94,6 +100,7 @@ Behavior notes:
 - `is_active` allows an account to be disabled without deleting it.
 
 ### `instances`
+
 Purpose: store a local representation of EC2 instances so the application can cache AWS metadata and apply user-specific visibility rules.
 
 | Column | Type | Nullable | Default | Constraints | Meaning |
@@ -117,6 +124,7 @@ Behavior notes:
 - A composite index on `(state, last_synced)` accelerates dashboard queries that filter by state and order by recency.
 
 ### `metrics`
+
 Purpose: persist CloudWatch metric snapshots so the application can avoid repeated AWS calls for historical reads and build a long-term performance dataset.
 
 | Column | Type | Nullable | Default | Constraints | Meaning |
@@ -138,6 +146,7 @@ Behavior notes:
 ## Constraints and Rules
 
 ### Database-level constraints
+
 - `users.id` is the primary key.
 - `users.email` is unique.
 - `instances.instance_id` is the primary key.
@@ -147,12 +156,14 @@ Behavior notes:
 - Composite index `ix_metrics_instance_name_recorded` on `metrics(instance_id, metric_name, recorded_at)`.
 
 ### Application rules
+
 - `hashed_password` must always store bcrypt hashes.
 - `created_by_user_id` is application-owned metadata and is not currently enforced as a foreign key by the ORM.
 - Admin-only behavior is enforced in route dependencies, not through relational permissions.
 - Instance visibility and control rules are enforced in application logic, not through row-level security.
 
 ## Seed And Bootstrap Data
+
 Production does not ship with hard-coded users. The backend can optionally
 bootstrap one admin account from environment variables during startup:
 
@@ -171,6 +182,7 @@ demo walkthrough accounts, but that script is blocked when
 `CLOUDSIM_ENVIRONMENT=production`.
 
 ## Detailed Walkthrough
+
 The `users` table exists because CloudSim uses first-party authentication instead of delegating all identity management to AWS or an external identity provider. A user signs in with an email and password. During login, the backend looks up `users.email`, checks the submitted password against `users.hashed_password`, and then issues a JWT. That means this table is the root of the entire auth flow: if the row is missing, inactive, or assigned the wrong role, the rest of the application behaves differently immediately.
 
 The `role` column is the second key part of the design. CloudSim keeps authorization intentionally simple by using a single string column instead of normalized roles and permissions tables. That choice keeps local development and debugging easy. When the current user hits an admin route, the backend checks whether `role == "Admin"`. When the user accesses EC2 endpoints, route logic treats `Admin` and `DevOps Engineer` as broader-access roles and treats `User` as a restricted role. Because the role is embedded directly on the user row, changing one value can immediately change what the frontend and backend permit.
@@ -182,9 +194,11 @@ The most important application-owned field on the `instances` table is `created_
 Just as important is what the schema does not model yet. There is no separate `roles` table, no normalized permissions schema, no audit log tables, no database migration framework in the current code, and no strict foreign-key enforcement between `instances.created_by_user_id` and `users.id`. Those omissions are intentional for now. The current schema favors clarity and development speed over deeper normalization.
 
 ## Recreation Workflow
+
 CloudSim now has two recommended recreation paths.
 
 ### SQL recreation
+
 Use SQL when you want a direct PostgreSQL schema reset, especially if you are operating from `psql`. The SQL script is schema-only and intentionally does not seed users.
 
 Recommended command:
@@ -202,6 +216,7 @@ ORDER BY id;
 ```
 
 ### Python recreation
+
 Use the Python script when you want the database rebuild to stay aligned with backend ORM behavior and password hashing logic. This is the preferred developer workflow because it creates tables through SQLAlchemy and hashes seed passwords through the backend auth module.
 
 Recommended command:
@@ -209,7 +224,7 @@ Recommended command:
 ```bash
 cd backend
 env -u DEBUG ENVIRONMENT=development DEBUG=true SECRET_KEY=dev-secret-key \
-  venv/bin/python scripts/recreate_seed_database.py --drop-existing
+  .venv/bin/python scripts/recreate_seed_database.py --drop-existing
 ```
 
 Expected output:
@@ -223,6 +238,7 @@ CloudSim database recreation complete.
 ```
 
 ### Choosing between them
+
 - Use SQL when you need a simple schema reset from a database shell.
 - Use Python when you want development demo users and the recreation path to follow the backend’s models and auth utilities.
 - Prefer the Python path during ongoing development.

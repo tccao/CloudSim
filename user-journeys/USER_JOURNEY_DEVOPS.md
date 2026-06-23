@@ -91,6 +91,7 @@ Sam's role has two boundaries. First, the User Management section is completely 
 ## Permissions Summary
 
 ### Allowed Actions
+
 ```
 ec2:DescribeInstances
 ec2:DescribeInstanceStatus
@@ -116,6 +117,7 @@ ce:GetCostForecast
 ```
 
 ### Explicitly Denied
+
 ```
 ec2:CreateVpc
 ec2:DeleteVpc

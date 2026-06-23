@@ -88,8 +88,13 @@ component and request-flow diagram.
 
 - Node.js 22+
 - Python 3.14+ to match the Dockerfile and CI workflow
+- [uv](https://docs.astral.sh/uv/) for Python environment and dependency
+  management (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - PostgreSQL 15+ for local non-Docker development
 - Docker and Docker Compose for the fastest local full-stack run
+- Optional: [`@mermaid-js/mermaid-cli`](https://github.com/mermaid-js/mermaid-cli)
+  (`mmdc`) plus a Chromium/Chrome browser to render the Mermaid diagrams in the
+  docs (see [Rendering Documentation Diagrams](#rendering-documentation-diagrams))
 
 ## Quick Start
 
@@ -101,9 +106,9 @@ docker compose up --build
 
 Then open:
 
-- Frontend: http://localhost:5173
-- Backend health: http://localhost:8000/health
-- Backend API docs in development mode: http://localhost:8000/docs
+- Frontend: <http://localhost:5173>
+- Backend health: <http://localhost:8000/health>
+- Backend API docs in development mode: <http://localhost:8000/docs>
 
 Compose starts PostgreSQL, FastAPI, and the built Vite app served by nginx. It
 uses `CLOUDSIM_AWS_BACKEND=mock` by default.
@@ -126,13 +131,16 @@ status if it already exists. It preserves an existing password unless
 
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
+uv sync   # creates .venv on Python 3.14 and installs locked deps (incl. dev/test)
 export DATABASE_URL="postgresql://postgres:1@localhost:5432/cloudsim"
 export CLOUDSIM_AWS_BACKEND=mock
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+Backend dependencies are declared in [backend/pyproject.toml](backend/pyproject.toml)
+and pinned in `backend/uv.lock`. Prefix commands with `uv run` to use the synced
+environment, or activate it once with `source .venv/bin/activate`. Add or change
+dependencies with `uv add <pkg>` / `uv add --dev <pkg>` (this updates the lockfile).
 
 ### Frontend Development
 
@@ -176,8 +184,7 @@ SMOKE_AUTH=1 \
 
 ```bash
 cd backend
-source venv/bin/activate
-python -m pytest
+uv run pytest
 
 cd ../frontend
 npm run lint
@@ -190,3 +197,49 @@ docker compose config
 
 GitHub Actions runs backend tests, frontend lint/test/build, Compose validation,
 and both Docker image builds on pushes and pull requests to `main`.
+
+## Rendering Documentation Diagrams
+
+The architecture docs ([architectureDiagram.md](architectureDiagram.md)) contain
+Mermaid diagrams. To export them to SVG/PNG, install the Mermaid CLI globally.
+It renders through a headless Chromium via Puppeteer.
+
+### Install (Ubuntu / WSL2)
+
+```bash
+# Reuse a system Chromium instead of Puppeteer's bundled download
+sudo apt update && sudo apt install -y chromium-browser
+PUPPETEER_SKIP_DOWNLOAD=true npm install -g @mermaid-js/mermaid-cli
+```
+
+Create a Puppeteer config so `mmdc` finds Chromium. The `--no-sandbox` flag is
+required on WSL2 and most container/CI environments:
+
+```bash
+cat > ~/.mmdc-puppeteer.json <<'EOF'
+{ "executablePath": "/usr/bin/chromium-browser", "args": ["--no-sandbox"] }
+EOF
+```
+
+If you prefer Puppeteer's bundled Chrome instead, drop `PUPPETEER_SKIP_DOWNLOAD`
+and install its runtime libraries first:
+
+```bash
+sudo apt install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgbm1 \
+  libasound2 libpangocairo-1.0-0 libgtk-3-0
+npm install -g @mermaid-js/mermaid-cli
+```
+
+> If a previous install left a partial browser download, clear the cache before
+> retrying: `rm -rf ~/.cache/puppeteer/chrome/<version>`.
+
+### Render
+
+```bash
+# One SVG per diagram: architectureDiagram-1.svg, -2.svg, -3.svg
+mmdc -i architectureDiagram.md -o architectureDiagram.svg -p ~/.mmdc-puppeteer.json
+
+# Use -o output.png for PNG output instead
+```
+
+Verify the install with `mmdc --version`.

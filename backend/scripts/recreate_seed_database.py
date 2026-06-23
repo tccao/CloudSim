@@ -4,7 +4,7 @@ Recreate and seed the CloudSim database from the backend ORM.
 Usage:
   cd backend
   env -u DEBUG ENVIRONMENT=development DEBUG=true SECRET_KEY=dev-secret-key \
-    venv/bin/python scripts/recreate_seed_database.py --drop-existing
+    .venv/bin/python scripts/recreate_seed_database.py --drop-existing
 """
 
 from __future__ import annotations

@@ -5,6 +5,7 @@
 ## Overview
 
 We will create:
+
 1. **One IAM User** (`cloudsim-service`) - Used by the backend application
 2. **Three IAM Roles** - One for each CloudSim user role, assumed via STS
 
@@ -22,7 +23,7 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 
 ### Step 1.1: Delete Old IAM User (AWS Console)
 
-1. Go to: https://console.aws.amazon.com/iam/home#/users
+1. Go to: <https://console.aws.amazon.com/iam/home#/users>
 2. Find `cloudsim` user
 3. Click on the user name
 4. Go to **Security credentials** tab
@@ -34,7 +35,7 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 
 ### Step 1.2: Delete Old IAM Roles (if any)
 
-1. Go to: https://console.aws.amazon.com/iam/home#/roles
+1. Go to: <https://console.aws.amazon.com/iam/home#/roles>
 2. Search for `CloudSim`
 3. Delete any existing CloudSim roles
 
@@ -44,7 +45,7 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 
 ### Step 2.1: Create Admin Policy
 
-1. Go to: https://console.aws.amazon.com/iam/home#/policies
+1. Go to: <https://console.aws.amazon.com/iam/home#/policies>
 2. Click **Create policy**
 3. Select **JSON** tab
 4. Paste this policy:
@@ -75,10 +76,10 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 }
 ```
 
-5. Click **Next**
-6. Name: `CloudSimAdminPolicy`
-7. Description: `Full EC2, CloudWatch, and Cost Explorer access for CloudSim admins`
-8. Click **Create policy**
+1. Click **Next**
+2. Name: `CloudSimAdminPolicy`
+3. Description: `Full EC2, CloudWatch, and Cost Explorer access for CloudSim admins`
+4. Click **Create policy**
 
 ---
 
@@ -147,8 +148,8 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 }
 ```
 
-4. Name: `CloudSimDevOpsPolicy`
-5. Create policy
+1. Name: `CloudSimDevOpsPolicy`
+2. Create policy
 
 ---
 
@@ -211,8 +212,8 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 > ⚠️ **AWS Limitation:** IAM cannot filter `ec2:DescribeInstances` by tag.  
 > At the AWS level, users CAN see all instances. Filtering by ownership happens in the **CloudSim backend** using the `CreatedBy` tag.
 
-4. Name: `CloudSimUserPolicy`
-5. Create policy
+1. Name: `CloudSimUserPolicy`
+2. Create policy
 
 ---
 
@@ -220,7 +221,7 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 
 ### Step 3.1: Create User
 
-1. Go to: https://console.aws.amazon.com/iam/home#/users
+1. Go to: <https://console.aws.amazon.com/iam/home#/users>
 2. Click **Create user**
 3. User name: `cloudsim-service`
 4. Click **Next**
@@ -235,7 +236,7 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 3. Click **Create access key**
 4. Select **Application running outside AWS**
 5. Click **Next** → **Create access key**
-6. **SAVE THESE KEYS!** 
+6. **SAVE THESE KEYS!**
 
 ```
 Access key ID: AKIA...
@@ -268,8 +269,8 @@ The backend user needs permission to assume roles. Add this inline policy:
 }
 ```
 
-4. Name: `AllowAssumeCloudSimRoles`
-5. Create policy
+1. Name: `AllowAssumeCloudSimRoles`
+2. Create policy
 
 ---
 
@@ -279,7 +280,7 @@ Create **3 roles** - one for each CloudSim user type.
 
 ### Step 4.1: Create Admin Role
 
-1. Go to: https://console.aws.amazon.com/iam/home#/roles
+1. Go to: <https://console.aws.amazon.com/iam/home#/roles>
 2. Click **Create role**
 3. Select **Custom trust policy**
 4. Paste:
@@ -299,15 +300,16 @@ Create **3 roles** - one for each CloudSim user type.
 }
 ```
 
-5. Click **Next**
-6. Search and check: `CloudSimAdminPolicy`
-7. Click **Next**
-8. Role name: `CloudSimAdminRole`
-9. Create role
+1. Click **Next**
+2. Search and check: `CloudSimAdminPolicy`
+3. Click **Next**
+4. Role name: `CloudSimAdminRole`
+5. Create role
 
 ### Step 4.2: Create DevOps Role
 
 Repeat:
+
 - Trust policy: Same as above
 - Attach: `CloudSimDevOpsPolicy`
 - Role name: `CloudSimDevOpsRole`
@@ -315,6 +317,7 @@ Repeat:
 ### Step 4.3: Create User Role
 
 Repeat:
+
 - Trust policy: Same as above
 - Attach: `CloudSimUserPolicy`
 - Role name: `CloudSimUserRole`
@@ -368,9 +371,9 @@ aws sts assume-role \
 
 | CloudSim User | Database Role | IAM Role | IAM Policy |
 |---------------|---------------|----------|------------|
-| admin@gmail.com | Admin | CloudSimAdminRole | CloudSimAdminPolicy |
-| deng@gmail.com | DevOps Engineer | CloudSimDevOpsRole | CloudSimDevOpsPolicy |
-| user@gmail.com | User | CloudSimUserRole | CloudSimUserPolicy |
+| <admin@gmail.com> | Admin | CloudSimAdminRole | CloudSimAdminPolicy |
+| <deng@gmail.com> | DevOps Engineer | CloudSimDevOpsRole | CloudSimDevOpsPolicy |
+| <user@gmail.com> | User | CloudSimUserRole | CloudSimUserPolicy |
 
 ---
 
@@ -394,8 +397,8 @@ aws sts assume-role \
 | DevOps Engineer | All | All | All | All | All |
 | User | Own only | Own only | Own only | Own only | N/A |
 
-
 **How Instance Isolation Works:**
+
 1. **Tagging**: Instances created via CloudSim are tagged with `CreatedBy=<user_id>`
 2. **IAM Policy**: Limits Start/Stop/Reboot/Terminate to instances with `ManagedBy=CloudSim` tag
 3. **Backend Filter**: `list_instances()` filters results by `CreatedBy` tag for User role

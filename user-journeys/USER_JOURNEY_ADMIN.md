@@ -96,6 +96,7 @@ Jordan has full modification rights on all advanced settings. The **Resource Quo
 ## Permissions Summary
 
 ### Allowed Actions (Full Access)
+
 ```
 ec2:*                          (all EC2 actions)
 cloudwatch:*                   (all CloudWatch actions)
@@ -105,12 +106,15 @@ ce:GetCostForecast             (Cost Forecasting)
 ```
 
 ### Explicitly Denied
+
 ```
 (none — Admin has unrestricted access in CloudSim)
 ```
 
 ### Self-Protection Rules
+
 Even with full access, Admins cannot:
+
 - **Disable their own account** — `PUT /api/admin/users/{self_id}` with `is_active=false` returns 400.
 - **Delete their own account** — `DELETE /api/admin/users/{self_id}` returns 400.
 

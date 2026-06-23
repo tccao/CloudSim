@@ -6,15 +6,15 @@ A comprehensive guide to modern frontend development for Python developers, usin
 
 ## Table of Contents
 
-1.  [Technology Stack Overview](#technology-stack-overview)
-2.  [TypeScript Fundamentals](#typescript-fundamentals)
-3.  [React Core Concepts](#react-core-concepts)
-4.  [State Management](#state-management)
-5.  [Component Architecture](#component-architecture)
-6.  [API Integration with Axios](#api-integration-with-axios)
-7.  [Styling with Tailwind CSS](#styling-with-tailwind-css)
-8.  [UI Component Libraries](#ui-component-libraries)
-9.  [Build Tools (Vite)](#build-tools-vite)
+1. [Technology Stack Overview](#technology-stack-overview)
+2. [TypeScript Fundamentals](#typescript-fundamentals)
+3. [React Core Concepts](#react-core-concepts)
+4. [State Management](#state-management)
+5. [Component Architecture](#component-architecture)
+6. [API Integration with Axios](#api-integration-with-axios)
+7. [Styling with Tailwind CSS](#styling-with-tailwind-css)
+8. [UI Component Libraries](#ui-component-libraries)
+9. [Build Tools (Vite)](#build-tools-vite)
 10. [Interview Questions & Answers](#interview-questions--answers)
 11. [Hands-On Exercises (CloudSim-Based)](#hands-on-exercises-cloudsim-based)
 12. [Best Learning Resources](#best-learning-resources)
@@ -40,6 +40,7 @@ The CloudSim frontend uses a modern, production-ready stack:
 ## TypeScript Fundamentals
 
 ### What is TypeScript?
+
 TypeScript is a superset of JavaScript that adds static typing. Think of it as Python with type hints, but the hints are **required and enforced at compile time**.
 
 ### Key Syntax Comparison
@@ -89,6 +90,7 @@ async def get_instance(id: str) -> EC2Instance:
 **📂 CloudSim Reference:** `frontend/src/api/ec2.ts` - All API interfaces
 
 **📚 Resources:**
+
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/) - Official docs
 - [TypeScript for Python Developers](https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes-oop.html)
 
@@ -97,6 +99,7 @@ async def get_instance(id: str) -> EC2Instance:
 ## React Core Concepts
 
 ### What is React?
+
 React is a library for building user interfaces using **components**. Instead of writing HTML templates, you write JavaScript functions that return UI.
 
 ### Components: Functions that Return UI
@@ -155,6 +158,7 @@ export function DashboardPage({ onInstanceClick }: DashboardPageProps) {
 ```
 
 **📚 Resources:**
+
 - [React Official Tutorial](https://react.dev/learn)
 - [React in 100 Seconds (Video)](https://www.youtube.com/watch?v=Tn6-PIqc4UM)
 
@@ -186,6 +190,7 @@ export function InstanceDetailsPage() {
 ```
 
 **Python Mental Model:**
+
 ```python
 # Python equivalent concept
 class Component:
@@ -220,6 +225,7 @@ export function InstanceDetailsPage({ instanceId }) {
 ```
 
 **Dependency Array Rules:**
+
 | Dependency Array | When Effect Runs                    |
 | ---------------- | ----------------------------------- |
 | `[]`             | Once, on mount only                 |
@@ -264,6 +270,7 @@ function Header() {
 **📂 CloudSim Reference:** `frontend/src/contexts/UserContext.tsx`
 
 **📚 Resources:**
+
 - [useState Guide](https://react.dev/reference/react/useState)
 - [useEffect Guide](https://react.dev/reference/react/useEffect)
 - [useContext Guide](https://react.dev/reference/react/useContext)
@@ -355,6 +362,7 @@ export async function createInstance(data: CreateInstanceRequest): Promise<Actio
 ```
 
 **Python Comparison:**
+
 ```python
 # Python equivalent
 import requests
@@ -383,6 +391,7 @@ const fetchInstanceDetails = async (id: string) => {
 ```
 
 **📚 Resources:**
+
 - [Axios Documentation](https://axios-http.com/docs/intro)
 - [Async/Await in JavaScript](https://javascript.info/async-await)
 
@@ -391,6 +400,7 @@ const fetchInstanceDetails = async (id: string) => {
 ## Styling with Tailwind CSS
 
 ### What is Tailwind?
+
 Tailwind CSS is a utility-first CSS framework. Instead of writing CSS files, you apply tiny classes directly in HTML/JSX.
 
 ```tsx
@@ -419,6 +429,7 @@ Tailwind CSS is a utility-first CSS framework. Instead of writing CSS files, you
 **📂 CloudSim Reference:** Any component file, e.g., `DashboardPage.tsx`
 
 **📚 Resources:**
+
 - [Tailwind CSS Docs](https://tailwindcss.com/docs)
 - [Tailwind Cheat Sheet](https://tailwindcomponents.com/cheatsheet/)
 
@@ -477,6 +488,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 ```
 
 **📚 Resources:**
+
 - [shadcn/ui Docs](https://ui.shadcn.com/)
 - [Radix UI Primitives](https://www.radix-ui.com/primitives)
 - [Recharts Documentation](https://recharts.org/en-US/)
@@ -486,7 +498,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 ## Build Tools (Vite)
 
 ### What is Vite?
+
 Vite is a modern build tool that provides:
+
 - **Dev server** with hot module replacement (instant updates)
 - **Production bundler** that optimizes code
 
@@ -519,7 +533,9 @@ npm run preview
 ### 🔵 Junior Fullstack Questions (React/Frontend Focus)
 
 #### Q1: What is the Virtual DOM and why does React use it?
+
 **Answer:** The Virtual DOM is an in-memory JavaScript representation of the actual DOM. When state changes, React:
+
 1. Creates a new Virtual DOM tree
 2. Compares it with the previous one (diffing)
 3. Updates only the changed parts in the real DOM (reconciliation)
@@ -531,11 +547,14 @@ npm run preview
 ---
 
 #### Q2: Explain the difference between `useState` and `useEffect`
+
 **Answer:**
+
 - **useState:** Stores data that persists across renders and triggers re-renders when updated
 - **useEffect:** Runs side effects (API calls, subscriptions) after render
 
 **CloudSim Example:**
+
 ```tsx
 // InstanceDetailsPage.tsx
 const [instance, setInstance] = useState(null);   // Data storage
@@ -549,14 +568,17 @@ useEffect(() => {
 ---
 
 #### Q3: What is "prop drilling" and how do you solve it?
+
 **Answer:** Prop drilling is passing props through many component levels to reach a deeply nested child.
 
 **Solutions:**
+
 1. **Context API** (used in CloudSim for auth)
 2. State management libraries (Redux, Zustand)
 3. Component composition
 
 **CloudSim Example:** User authentication uses Context to avoid drilling:
+
 ```tsx
 // Any component can access user without prop drilling
 const { user, logout } = useUser();
@@ -565,11 +587,14 @@ const { user, logout } = useUser();
 ---
 
 #### Q4: Explain controlled vs uncontrolled components
+
 **Answer:**
+
 - **Controlled:** React state manages the input value (`value={state}` + `onChange`)
 - **Uncontrolled:** DOM manages its own state (accessed via `ref`)
 
 **CloudSim Example (Controlled):**
+
 ```tsx
 // CreateInstanceModal.tsx (conceptual)
 const [name, setName] = useState('');
@@ -579,9 +604,11 @@ const [name, setName] = useState('');
 ---
 
 #### Q5: How do you handle API errors in React?
+
 **Answer:** Use try/catch with async/await and display error feedback to users.
 
 **CloudSim Example:**
+
 ```tsx
 // InstanceDetailsPage.tsx
 const fetchInstanceDetails = async (id: string) => {
@@ -601,12 +628,15 @@ const fetchInstanceDetails = async (id: string) => {
 ---
 
 #### Q6: What is the purpose of the dependency array in useEffect?
+
 **Answer:** It controls when the effect runs:
+
 - `[]` - Run once on mount
 - `[dep1, dep2]` - Run when any dependency changes
 - Omitted - Run after every render (usually a bug)
 
 **CloudSim Example:**
+
 ```tsx
 useEffect(() => {
   if (instanceId) {
@@ -618,9 +648,11 @@ useEffect(() => {
 ---
 
 #### Q7: How do you share state between sibling components?
+
 **Answer:** "Lift state up" to the nearest common parent.
 
 **CloudSim Example:**
+
 ```
 App.tsx (holds selectedInstanceId)
 ├── DashboardPage (calls onInstanceClick → updates parent state)
@@ -632,7 +664,9 @@ App.tsx (holds selectedInstanceId)
 ### 🟢 Fullstack Questions (Frontend + Backend)
 
 #### Q8: How does the frontend communicate with the backend in CloudSim?
+
 **Answer:** Via RESTful API calls using Axios:
+
 1. Frontend calls API function (e.g., `getInstance(id)`)
 2. Axios sends HTTP request to FastAPI backend
 3. Backend queries AWS/database and returns JSON
@@ -641,9 +675,11 @@ App.tsx (holds selectedInstanceId)
 ---
 
 #### Q9: How do you handle authentication tokens?
+
 **Answer:** Store token in localStorage, attach to requests via Axios interceptors.
 
 **CloudSim Flow:**
+
 1. User logs in → Backend returns JWT token
 2. Token stored in localStorage
 3. Axios interceptor adds `Authorization: Bearer <token>` to all requests
@@ -652,7 +688,9 @@ App.tsx (holds selectedInstanceId)
 ---
 
 #### Q10: What happens when a user clicks an instance name in CloudSim?
+
 **Answer (trace the flow):**
+
 1. `DashboardPage`: `onClick={() => onInstanceClick(instance.id)}`
 2. `App.tsx`: `setSelectedInstanceId(id)` + `setActiveTab("details")`
 3. `InstanceDetailsPage`: `useEffect` detects `instanceId` change
@@ -670,17 +708,20 @@ These exercises use your actual CloudSim codebase. Complete them to solidify con
 ---
 
 ### Exercise 1: Add a Refresh Button (useState + API Call)
+
 **Difficulty:** ⭐ Easy | **Concepts:** useState, onClick handlers, API calls
 
 **Task:** Add a "Refresh" button to `InstanceDetailsPage` that re-fetches the instance data.
 
 **Steps:**
+
 1. Open `frontend/src/components/InstanceDetailsPage.tsx`
 2. Add a button in the header section next to "Terminate"
 3. On click, call `fetchInstanceDetails(instance.instance_id)`
 4. Show a loading spinner while refreshing
 
 **Starter Code:**
+
 ```tsx
 <Button 
   variant="outline" 
@@ -698,12 +739,15 @@ These exercises use your actual CloudSim codebase. Complete them to solidify con
 ---
 
 ### Exercise 2: Display Instance Uptime (Data Transformation)
+
 **Difficulty:** ⭐ Easy | **Concepts:** Data manipulation, date formatting
 
 **Task:** Calculate and display how long the instance has been running.
 
 **Steps:**
+
 1. In `InstanceDetailsPage`, create a function to calculate uptime:
+
 ```tsx
 const calculateUptime = (launchTime: string | null): string => {
   if (!launchTime) return '-';
@@ -715,21 +759,25 @@ const calculateUptime = (launchTime: string | null): string => {
   return `${days}d ${hours}h`;
 };
 ```
-2. Display it in the Details tab
+
+1. Display it in the Details tab
 
 **Interview Connection:** "How would you format dates and calculate time differences in JavaScript?"
 
 ---
 
 ### Exercise 3: Add Search/Filter to Dashboard (Controlled Input)
+
 **Difficulty:** ⭐⭐ Medium | **Concepts:** Controlled components, array filtering
 
 **Task:** Add a search box to filter instances by name.
 
 **Steps:**
+
 1. Open `frontend/src/components/DashboardPage.tsx`
 2. Add state: `const [searchTerm, setSearchTerm] = useState('')`
 3. Add a search input:
+
 ```tsx
 <input
   type="text"
@@ -739,31 +787,38 @@ const calculateUptime = (launchTime: string | null): string => {
   className="px-3 py-2 border rounded-lg"
 />
 ```
-4. Filter the instances:
+
+1. Filter the instances:
+
 ```tsx
 const filteredInstances = instances.filter(i => 
   i.name.toLowerCase().includes(searchTerm.toLowerCase())
 );
 ```
-5. Render `filteredInstances` instead of `instances`
+
+1. Render `filteredInstances` instead of `instances`
 
 **Interview Connection:** "Implement a search feature with real-time filtering."
 
 ---
 
 ### Exercise 4: Add Confirmation Dialog for Terminate (Component Composition)
+
 **Difficulty:** ⭐⭐ Medium | **Concepts:** Dialogs, state management, user confirmation
 
 **Task:** Replace the `confirm()` with a proper modal dialog before terminating.
 
 **Steps:**
+
 1. Create state for dialog visibility:
+
 ```tsx
 const [showTerminateDialog, setShowTerminateDialog] = useState(false);
 ```
-2. Use the existing AlertDialog component from shadcn/ui
-3. On "Terminate" click, show dialog instead of browser confirm
-4. On dialog confirm, call `handleTerminate()`
+
+1. Use the existing AlertDialog component from shadcn/ui
+2. On "Terminate" click, show dialog instead of browser confirm
+3. On dialog confirm, call `handleTerminate()`
 
 **Reference:** Look at how `CreateInstanceModal.tsx` handles open/close state.
 
@@ -772,12 +827,15 @@ const [showTerminateDialog, setShowTerminateDialog] = useState(false);
 ---
 
 ### Exercise 5: Create an Instance Status Indicator Component (Component Extraction)
+
 **Difficulty:** ⭐⭐ Medium | **Concepts:** Reusable components, props
 
 **Task:** Extract the state badge into a reusable `InstanceStatusBadge` component.
 
 **Steps:**
+
 1. Create `frontend/src/components/InstanceStatusBadge.tsx`:
+
 ```tsx
 import { Badge } from './ui/badge';
 
@@ -800,41 +858,49 @@ export function InstanceStatusBadge({ state }: InstanceStatusBadgeProps) {
   );
 }
 ```
-2. Replace hardcoded badges in `DashboardPage` and `InstanceDetailsPage`
+
+1. Replace hardcoded badges in `DashboardPage` and `InstanceDetailsPage`
 
 **Interview Connection:** "How do you decide when to extract a component?"
 
 ---
 
 ### Exercise 6: Add a New Tab to Instance Details (Tabs + New Feature)
+
 **Difficulty:** ⭐⭐⭐ Hard | **Concepts:** Full feature implementation
 
 **Task:** Add an "Events" tab showing recent instance events (mock data initially).
 
 **Steps:**
+
 1. In `InstanceDetailsPage.tsx`, add a new `TabsTrigger` for "Events"
 2. Create mock event data:
+
 ```tsx
 const mockEvents = [
   { timestamp: '2026-01-01T12:00:00Z', type: 'StateChange', message: 'Instance started' },
   { timestamp: '2026-01-01T11:55:00Z', type: 'StatusCheck', message: 'System reachability check passed' },
 ];
 ```
-3. Create a `TabsContent` with a table displaying events
-4. **Bonus:** Add backend endpoint and fetch real events
+
+1. Create a `TabsContent` with a table displaying events
+2. **Bonus:** Add backend endpoint and fetch real events
 
 **Interview Connection:** "Walk me through adding a new feature from frontend to backend."
 
 ---
 
 ### Exercise 7: Implement Auto-Refresh for Metrics (useEffect + Intervals)
+
 **Difficulty:** ⭐⭐⭐ Hard | **Concepts:** Intervals, cleanup, useEffect
 
 **Task:** Auto-refresh metrics data every 30 seconds on the Monitoring page.
 
 **Steps:**
+
 1. Open `frontend/src/components/InstanceMonitoringPage.tsx`
 2. Add interval in useEffect:
+
 ```tsx
 useEffect(() => {
   const interval = setInterval(() => {
@@ -852,12 +918,15 @@ useEffect(() => {
 ---
 
 ### Exercise 8: Add Error Boundary (Error Handling)
+
 **Difficulty:** ⭐⭐⭐ Hard | **Concepts:** Error boundaries, class components
 
 **Task:** Wrap the app in an Error Boundary to catch rendering errors.
 
 **Steps:**
+
 1. Create `frontend/src/components/ErrorBoundary.tsx`:
+
 ```tsx
 import { Component, ErrorInfo, ReactNode } from 'react';
 
@@ -893,27 +962,35 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 ```
-2. Wrap `<App />` in `main.tsx`
+
+1. Wrap `<App />` in `main.tsx`
 
 **Interview Connection:** "How do you handle unexpected errors in React?"
 
 ---
 
 ### Exercise 9: Add Role-Based Button Visibility (Conditional Rendering)
+
 **Difficulty:** ⭐⭐ Medium | **Concepts:** Context, conditional rendering, authorization
 
 **Task:** Only show "Terminate" button to Admin users.
 
 **Steps:**
+
 1. In `InstanceDetailsPage`, import `useUser`:
+
 ```tsx
 import { useUser } from '../contexts/UserContext';
 ```
-2. Get user role:
+
+1. Get user role:
+
 ```tsx
 const { user } = useUser();
 ```
-3. Conditionally render:
+
+1. Conditionally render:
+
 ```tsx
 {user?.role === 'Admin' && (
   <Button onClick={handleTerminate} className="text-red-600">
@@ -928,13 +1005,16 @@ const { user } = useUser();
 ---
 
 ### Exercise 10: Write a Unit Test (Testing)
+
 **Difficulty:** ⭐⭐⭐ Hard | **Concepts:** Testing, Jest, React Testing Library
 
 **Task:** Write a test for the `InstanceStatusBadge` component.
 
 **Steps:**
+
 1. Create `frontend/src/components/__tests__/InstanceStatusBadge.test.tsx`
 2. Test that it renders the correct color for each state:
+
 ```tsx
 import { render, screen } from '@testing-library/react';
 import { InstanceStatusBadge } from '../InstanceStatusBadge';
@@ -978,22 +1058,26 @@ describe('InstanceStatusBadge', () => {
 ## Best Learning Resources
 
 ### Free Courses
+
 1. **[React Official Tutorial](https://react.dev/learn)** - Start here
 2. **[JavaScript.info](https://javascript.info/)** - JS fundamentals
 3. **[TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/)** - TS basics
 
 ### Video Tutorials
+
 1. **[Fireship React in 100 Seconds](https://www.youtube.com/watch?v=Tn6-PIqc4UM)** - Quick overview
 2. **[Codevolution React Complete Course](https://www.youtube.com/playlist?list=PLC3y8-rFHvwgg3vaYJgHGnModB54rxOk3)** - Comprehensive
 3. **[Net Ninja React Query Course](https://www.youtube.com/playlist?list=PL4cUxeGkcC9jERUGvbudErNCeSZHWUVlb)** - Data fetching
 
 ### Documentation (Keep Bookmarked)
+
 - [React Docs](https://react.dev/)
 - [TypeScript Docs](https://www.typescriptlang.org/docs/)
 - [Tailwind CSS](https://tailwindcss.com/docs)
 - [MDN Web Docs](https://developer.mozilla.org/) - JavaScript reference
 
 ### Practice Projects
+
 1. Build a Todo app with useState/useEffect
 2. Add a backend API and use Axios
 3. Implement authentication with Context

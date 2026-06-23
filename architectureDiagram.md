@@ -8,80 +8,80 @@ AWS service layer.
 ## System Diagram
 
 ```mermaid
-flowchart LR
-    PERSON["CloudSim user"]
+architecture-beta
+    service user(internet)[CloudSim user]
 
-    subgraph DELIVERY["Source and validation"]
-        REPO["GitHub repository"]
-        CI["GitHub Actions<br/>backend tests<br/>frontend lint/test/build<br/>Compose validation<br/>Docker image builds"]
-        REPO --> CI
-    end
+    group delivery(server)[Source and CI]
+        service repo(disk)[GitHub repo] in delivery
+        service ci(server)[GitHub Actions] in delivery
 
-    subgraph VERCEL["Vercel - static frontend"]
-        SPA["React 18 + TypeScript + Vite"]
-        SHELL["Login / Dashboard / Details<br/>Monitoring / IAM / Launch Wizard"]
-        AUTHCTX["UserContext<br/>localStorage JWT"]
-        AXIOS["Shared Axios client<br/>VITE_API_URL + bearer interceptor"]
-        SPA --> SHELL
-        SHELL --> AXIOS
-        AUTHCTX --> AXIOS
-    end
+    group vercel(cloud)[Vercel static frontend]
+        service spa(internet)[React SPA] in vercel
+        service axios(server)[Axios client and JWT] in vercel
 
-    subgraph RENDER["Render - Docker web service"]
-        EDGE["FastAPI app<br/>CORS + security headers + /health"]
-        AUTH["/api/auth<br/>register / login / me"]
-        ADMIN["/api/admin/users<br/>Admin-only CRUD"]
-        EC2API["/api/ec2<br/>instances / launch options<br/>metrics / costs"]
-        GUARD["Authentication + RBAC<br/>load current user from DB<br/>ownership checks"]
-        FACADE["aws_service.py facade"]
-        MOCK["PostgreSQL-backed mock adapter"]
-        LIVE["Lazy boto3 live adapter"]
+    group render(server)[Render FastAPI service]
+        service edge(server)[FastAPI app] in render
+        service guard(server)[Auth and RBAC] in render
+        service facade(server)[AWS service facade] in render
+        service mock(database)[Mock adapter] in render
+        service live(cloud)[boto3 live adapter] in render
 
-        EDGE --> AUTH
-        EDGE --> ADMIN
-        EDGE --> EC2API
-        AUTH --> GUARD
-        ADMIN --> GUARD
-        EC2API --> GUARD
-        EC2API --> FACADE
-        FACADE -->|"CLOUDSIM_AWS_BACKEND=mock"| MOCK
-        FACADE -->|"CLOUDSIM_AWS_BACKEND=live"| LIVE
-    end
+    group postgres(database)[Render PostgreSQL]
+        service users(database)[users] in postgres
+        service instances(database)[instances] in postgres
+        service metrics(database)[metrics] in postgres
 
-    subgraph POSTGRES["Render PostgreSQL"]
-        USERS[("users<br/>credentials / roles / status")]
-        INSTANCES[("instances<br/>mock state / synced metadata / ownership")]
-        METRICS[("metrics<br/>persisted metric datapoints")]
-    end
+    group aws(cloud)[AWS live mode only]
+        service sts(server)[STS] in aws
+        service ec2(server)[EC2] in aws
+        service cw(server)[CloudWatch] in aws
+        service ce(database)[Cost Explorer] in aws
 
-    subgraph AWS["AWS - live mode only"]
-        STS["STS AssumeRole<br/>optional"]
-        EC2["EC2<br/>instances / AMIs / network / volumes"]
-        CW["CloudWatch<br/>CPU / network / disk metrics"]
-        CE["Cost Explorer<br/>daily / monthly costs"]
-    end
+    repo:R --> L:ci
 
-    PERSON -->|"1. load app"| SPA
-    AXIOS -->|"2. direct HTTPS requests"| EDGE
-    AUTH -->|"3. credentials and current user"| USERS
-    GUARD -->|"4. reload role and active status"| USERS
-    ADMIN -->|"5. user management"| USERS
-    EC2API -->|"6. sync live metadata"| INSTANCES
-    EC2API -->|"7. persist returned metrics"| METRICS
-    MOCK -->|"8. virtual instance state and ownership"| INSTANCES
-    MOCK -->|"9. generate metrics and cost estimates"| EC2API
-    LIVE -->|"10a. shared backend credentials when role access is off"| EC2
-    LIVE -->|"10b. role-mapped temporary clients when role access is on"| STS
-    STS --> EC2
-    STS --> CW
-    STS --> CE
-    LIVE --> EC2
-    LIVE --> CW
-    LIVE --> CE
+    user:R --> L:spa
+    spa:R --> L:axios
+    axios:R --> L:edge
+
+    edge:R --> L:guard
+    edge:B --> T:facade
+    guard:R --> L:users
+    facade:R --> L:mock
+    facade:B --> T:live
+    mock:R --> L:instances
+    mock:B --> T:metrics
+
+    live:R --> L:sts
+    live:B --> T:ec2
+    sts:R --> L:ec2
+    ec2:B --> T:cw
+    cw:B --> T:ce
 ```
 
-The browser calls the Render API directly using the URL baked into the Vite
-bundle as `VITE_API_URL`. Vercel serves static files and does not proxy the API.
+Each group is an icon-tagged deployment boundary (`cloud` for hosted edges and
+AWS, `server` for compute, `database` for stored state, `disk`/`internet` for
+source and clients), and every arrow points in the direction the call actually
+travels. The browser calls the Render API directly using the URL baked into the
+Vite bundle as `VITE_API_URL`; Vercel serves static files and does not proxy the
+API.
+
+**Runtime flow (the numbered request path the arrows encode):**
+
+1. The user loads the React SPA from Vercel.
+2. The Axios client sends direct HTTPS requests to the FastAPI app on Render.
+3. Auth routes create or verify credentials against the `users` table.
+4. The RBAC guard reloads role and active status from `users` on every request.
+5. Admin user-management also reads and writes `users`.
+6. EC2 routes go through the AWS service facade.
+7. The facade dispatches to the mock adapter when `CLOUDSIM_AWS_BACKEND=mock`.
+8. The mock adapter reads and writes virtual instance state/ownership in
+   `instances`, and persists generated datapoints to `metrics`.
+9. The facade dispatches to the boto3 live adapter when
+   `CLOUDSIM_AWS_BACKEND=live`.
+10. In live mode the adapter calls EC2, CloudWatch, and Cost Explorer directly
+    with the backend credential chain, or obtains role-mapped temporary clients
+    through STS when `ENABLE_ROLE_BASED_ACCESS=true`. Synced live metadata lands
+    in `instances` and returned metrics in `metrics`.
 
 ## Request Flows
 
@@ -90,10 +90,16 @@ bundle as `VITE_API_URL`. Vercel serves static files and does not proxy the API.
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User
-    participant UI as Vercel React app
-    participant API as Render FastAPI
-    participant DB as PostgreSQL users
+    box Browser
+        actor User
+        participant UI as Vercel React app
+    end
+    box Render FastAPI
+        participant API as Auth routes
+    end
+    box Render PostgreSQL
+        participant DB as users table
+    end
 
     User->>UI: Register or sign in
     UI->>API: POST /api/auth/register or /api/auth/login
@@ -115,12 +121,18 @@ active-status, and deletion changes take effect without waiting for a new token.
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User
-    participant UI as React UI
-    participant Route as FastAPI EC2 route
-    participant DB as PostgreSQL
-    participant Facade as AWS service facade
-    participant Provider as Mock adapter or AWS
+    box Browser
+        actor User
+        participant UI as React UI
+    end
+    box Render FastAPI
+        participant Route as EC2 route
+        participant Facade as AWS service facade
+    end
+    box Data and providers
+        participant DB as PostgreSQL
+        participant Provider as Mock adapter or AWS
+    end
 
     User->>UI: List, launch, act, or open monitoring
     UI->>Route: Bearer-authenticated /api/ec2 request
@@ -191,5 +203,5 @@ sequenceDiagram
 | `ENABLE_COST_EXPLORER=true` | Enables live Cost Explorer endpoints |
 | `CLOUDSIM_BOOTSTRAP_ADMIN_ENABLED=true` | Creates or restores the configured backend-only admin at startup |
 
-Document version: 3.0
-Last updated: June 6, 2026
+Document version: 3.1
+Last updated: June 22, 2026
