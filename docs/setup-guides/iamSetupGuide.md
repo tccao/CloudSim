@@ -9,7 +9,7 @@ We will create:
 1. **One IAM User** (`cloudsim-service`) - Used by the backend application
 2. **Three IAM Roles** - One for each CloudSim user role, assumed via STS
 
-```
+```text
 Database Users              IAM Roles
 ─────────────────────       ──────────────────────────
 admin@gmail.com (Admin)     → CloudSimAdminRole (full access)
@@ -85,7 +85,7 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 
 ### Step 2.2: Create DevOps Engineer Policy
 
-**DevOps = User permissions + create instances + view metrics**
+> DevOps = User permissions + create instances + view metrics
 
 1. Click **Create policy**
 2. Select **JSON** tab
@@ -155,7 +155,7 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 
 ### Step 2.3: Create User (Basic) Policy
 
-**User = View own instances, manage (start/stop/reboot/terminate) own instances, view own metrics**
+> User = View own instances, manage (start/stop/reboot/terminate) own instances, view own metrics
 
 1. Click **Create policy**
 2. Select **JSON** tab
@@ -238,7 +238,7 @@ user@gmail.com (User)       → CloudSimUserRole (manage own instances only)
 5. Click **Next** → **Create access key**
 6. **SAVE THESE KEYS!**
 
-```
+```text
 Access key ID: AKIA...
 Secret access key: wJalrXUtnFEMI...
 ```
@@ -406,4 +406,4 @@ aws sts assume-role \
 
 ---
 
-*Reference: CloudSim SRS Section 2.2 - User Classes & Characteristics*
+> Reference: CloudSim SRS Section 2.2 - User Classes & Characteristics

@@ -281,7 +281,7 @@ function Header() {
 
 ### File Structure Pattern
 
-```
+```text
 frontend/src/
 ├── api/                    # API client functions
 │   ├── client.ts           # Axios instance configuration
@@ -301,7 +301,7 @@ frontend/src/
 
 When two components need to share state, "lift" it to their common parent.
 
-```
+```text
           App.tsx
          /       \
         ↓ props   ↓ props
@@ -653,7 +653,7 @@ useEffect(() => {
 
 **CloudSim Example:**
 
-```
+```text
 App.tsx (holds selectedInstanceId)
 ├── DashboardPage (calls onInstanceClick → updates parent state)
 └── InstanceDetailsPage (receives instanceId as prop)
@@ -1087,7 +1087,7 @@ describe('InstanceStatusBadge', () => {
 
 ## Quick Reference: CloudSim File Map
 
-```
+```text
 frontend/src/
 ├── App.tsx                          # Root: Contains tab navigation, state lifting
 ├── main.tsx                         # Entry: Renders App to DOM

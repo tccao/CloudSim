@@ -329,7 +329,7 @@ Base URL (dev): `http://localhost:8000`
 | PUT | `/api/admin/users/{user_id}` | Update user role / active status |
 | DELETE | `/api/admin/users/{user_id}` | Delete user |
 
-**System**
+**System — `/health`, `/docs`**
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -350,7 +350,7 @@ Base URL (dev): `http://localhost:8000`
 
 **User** (`users` table)
 
-```
+```text
 id, email, hashed_password, role, is_active, created_at
 ```
 
@@ -358,7 +358,7 @@ id, email, hashed_password, role, is_active, created_at
 
 **Instance** (`instances` table — synced from AWS)
 
-```
+```text
 instance_id (PK), name, instance_type, state, public_ip, private_ip,
 availability_zone, launch_time, last_synced, created_by_user_id
 ```
@@ -367,7 +367,7 @@ availability_zone, launch_time, last_synced, created_by_user_id
 
 **Metric** (`metrics` table — CloudWatch snapshots)
 
-```
+```text
 id (PK), instance_id, metric_name, value, unit, recorded_at, collected_at
 ```
 
@@ -422,7 +422,7 @@ Retrieved in real-time via boto3:
 
 See `architectureDiagram.md` for the full Mermaid diagram with numbered flows. A simplified text view:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                        Frontend                              │
 │  (React 18 + TypeScript + Vite + Tailwind + shadcn/ui)      │
@@ -594,4 +594,4 @@ See `architectureDiagram.md` for the full Mermaid diagram with numbered flows. A
 
 ---
 
-*Document Last Updated: May 2026*
+> Document Last Updated: May 2026

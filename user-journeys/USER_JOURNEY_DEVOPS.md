@@ -92,7 +92,7 @@ Sam's role has two boundaries. First, the User Management section is completely 
 
 ### Allowed Actions
 
-```
+```text
 ec2:DescribeInstances
 ec2:DescribeInstanceStatus
 ec2:RunInstances
@@ -118,7 +118,7 @@ ce:GetCostForecast
 
 ### Explicitly Denied
 
-```
+```text
 ec2:CreateVpc
 ec2:DeleteVpc
 ec2:ModifyVpc*
@@ -142,7 +142,7 @@ ec2:ModifyVpc*
 
 ## Navigation Map
 
-```
+```text
 Login Page
   └── Dashboard (cross-user visibility - sees all instances)
         ├── Account Overview (cards - all instances counted)

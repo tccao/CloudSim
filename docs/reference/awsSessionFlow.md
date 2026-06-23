@@ -24,7 +24,7 @@ This document explains how CloudSim obtains AWS credentials, creates sessions, a
 
 CloudSim uses a layered approach to AWS access:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    CloudSim AWS Architecture                    │
 ├─────────────────────────────────────────────────────────────────┤
@@ -153,7 +153,7 @@ The boto3 session is **automatically created at module import time** through Pyt
 
 #### The Import Chain
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    AUTOMATIC SESSION CREATION FLOW                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -250,7 +250,7 @@ AWS_ROLE_READONLY=arn:aws:iam::096615316348:role/CloudSimUserRole
 
 ### AssumeRole Flow
 
-```
+```text
 ┌──────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │ User Request │───▶│ get_aws_client   │───▶│ STS AssumeRole  │
 │ (role=User)  │    │ _for_user()      │    │                 │
@@ -328,7 +328,7 @@ def get_service_client(self, service: str, role_arn: str, session_name: str):
 
 #### Phase 1: Authentication
 
-```
+```text
 Browser                              Backend
    │                                    │
    │  POST /api/auth/login              │
@@ -349,7 +349,7 @@ Browser                              Backend
 
 #### Phase 2: API Request
 
-```
+```text
 Browser                              Backend
    │                                    │
    │  GET /api/ec2/instances            │

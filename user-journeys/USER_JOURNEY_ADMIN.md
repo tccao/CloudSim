@@ -97,7 +97,7 @@ Jordan has full modification rights on all advanced settings. The **Resource Quo
 
 ### Allowed Actions (Full Access)
 
-```
+```text
 ec2:*                          (all EC2 actions)
 cloudwatch:*                   (all CloudWatch actions)
 ce:GetCostAndUsage             (Cost Explorer)
@@ -107,7 +107,7 @@ ce:GetCostForecast             (Cost Forecasting)
 
 ### Explicitly Denied
 
-```
+```text
 (none — Admin has unrestricted access in CloudSim)
 ```
 
@@ -138,7 +138,7 @@ These guardrails prevent the last Admin from accidentally locking themselves out
 
 ## Navigation Map
 
-```
+```text
 Login Page
   └── Dashboard (full cross-user visibility)
         ├── Account Overview (cards - all users' instances counted)

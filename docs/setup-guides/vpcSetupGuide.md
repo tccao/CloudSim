@@ -8,7 +8,7 @@ Complete guide to set up a dedicated VPC for CloudSim-managed EC2 instances.
 
 This guide creates a dedicated network environment for CloudSim:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        CloudSim VPC (10.0.0.0/16)                        │
 │                                                                          │
@@ -227,4 +227,4 @@ To delete VPC resources, delete in this order:
 
 ---
 
-*Reference: CloudSim Architecture Manual*
+> Reference: CloudSim Architecture Manual

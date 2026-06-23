@@ -409,7 +409,7 @@ JWT (JSON Web Token) is a self-contained token for stateless authentication:
 
 ### Token Structure
 
-```
+```text
 Header.Payload.Signature
 eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZXhwIjoxNzA0MTIzNDU2fQ.signature
 ```
@@ -622,7 +622,7 @@ def get_instance_metrics(instance_id: str, period_minutes: int = 60) -> dict:
 
 ### RESTful URL Structure
 
-```
+```text
 GET    /api/ec2/instances              # List all
 GET    /api/ec2/instances/{id}         # Get one
 POST   /api/ec2/instances              # Create
@@ -1222,7 +1222,7 @@ def test_list_instances(mock_ec2):
 
 ## Quick Reference: CloudSim Backend File Map
 
-```
+```text
 backend/
 ├── pyproject.toml                # Python dependencies + dev group + pytest config
 ├── uv.lock                       # Pinned, reproducible dependency versions

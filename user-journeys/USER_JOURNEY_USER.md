@@ -143,7 +143,7 @@ CloudSim enforces strict resource isolation between users. Each user can only se
 
 ### Allowed Actions
 
-```
+```text
 ec2:DescribeInstances
 ec2:DescribeInstanceStatus
 ec2:DescribeImages
@@ -165,7 +165,7 @@ cloudwatch:DescribeAlarms     (own instances)
 
 ### Explicitly Denied
 
-```
+```text
 ce:*                          (no Cost Explorer access)
 iam:*                         (no IAM/user management)
 ec2:*Vpc*                     (no VPC mutation)
@@ -173,7 +173,7 @@ ec2:*Vpc*                     (no VPC mutation)
 
 ## Navigation Map
 
-```
+```text
 Login Page
   └── Dashboard
         ├── Account Overview (cards)
